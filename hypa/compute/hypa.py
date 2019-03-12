@@ -106,4 +106,4 @@ class Hypa:
         """
         Compute hypa score using hypernets in R.
         """
-        return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p)[0]
+        return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
