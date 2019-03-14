@@ -60,7 +60,7 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, noxi=False):
 
 
 
-def fitXi(adj, xi_input, tol=1e-2, verbose=False):
+def fitXi(adj, xi_input, tol=1e-2, sparsexi=False, verbose=False):
     """
     python version of new r code to fix xi
     """
@@ -91,18 +91,26 @@ def fitXi(adj, xi_input, tol=1e-2, verbose=False):
     ## pass adjacency and non-corrected xi. if verbose=T,
     ## print root mean squared error (rmse)
 
-    if sp.issparse(xi_input):
+    if not sparsexi and sp.issparse(xi_input):
         xi = xi_input.toarray()
     else:
         xi = xi_input
 
     # the total number of edges
     m = adj.sum()
-    indegs = adj.sum(0)
-    outdegs = adj.sum(1)
+    ## if Scipy
+    if sparsexi:
+        indegs = np.array(adj.sum(0))
+        outdegs = np.array(adj.sum(1))
+        indegs = np.reshape(indegs, max(indegs.shape))
+        outdegs = np.reshape(outdegs, max(outdegs.shape))
+    else:
+        indegs = adj.sum(0)
+        outdegs = adj.sum(1)
 
     # the baseline rmse
     xi_sum = xi.sum()
+    val = ((xi/xi_sum*m).sum(1) - outdegs)
     rmse = np.sqrt( ( ((xi/xi_sum*m).sum(axis=1) - outdegs)**2 ).sum() )/2 + np.sqrt( ( ((xi/xi_sum*m).sum(axis=0) - indegs)**2 ).sum() )/2
     rmseold = rmse.copy()
     if verbose:

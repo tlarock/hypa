@@ -69,14 +69,16 @@ class Hypa:
         if verbose:
             print('Computing the k={} order Xi...'.format(k))
 
-        ## Compute Xi
+        ## Compute Xi TODO assuming sparse matrix here
         self.Xi, self.network = computeXiHigherOrder(self.paths, k=k, sparsexi=True, noxi=constant_xi)
-        self.adjacency = self.network.adjacency_matrix().toarray()
+        self.adjacency = self.network.adjacency_matrix()
 
         if redistribute and not constant_xi:
             if verbose:
                 print('Fitting Xi...')
-            self.Xi = fitXi(self.adjacency, self.Xi, tol=xifittol, verbose=verbose)
+
+            ## TODO again assuming sparse matrix
+            self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=True tol=xifittol, verbose=verbose)
 
         reverse_name_dict = {val:key for key,val in self.network.node_to_name_map().items()}
 
