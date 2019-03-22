@@ -73,25 +73,43 @@ def fitXi(adj, xi_input, tol=1e-2, sparsexi=False, verbose=False):
 
         # compute the ratio between observed degrees and
         # expected degrees (rowwise)
-        exp_degs = (xi/xi_sum*m).sum(1)
+        exp_degs = np.array((xi/xi_sum*m).sum(axis=1))
+        exp_degs = exp_degs.reshape(max(exp_degs.shape))
         nonzero_ids = exp_degs != 0
-
+        nonzero_ids = nonzero_ids.reshape(max(nonzero_ids.shape,))
         ratio = np.zeros(len(exp_degs))
+        print(nonzero_ids)
+        print(exp_degs[nonzero_ids])
+        print(str(degs[nonzero_ids] / exp_degs[nonzero_ids]))
         ratio[nonzero_ids] = degs[nonzero_ids]/exp_degs[nonzero_ids]
-
         # increment each column of xi by the computed ratio
         # this results in a xi matrix with the correct number
         # of balls (m^2 == sum(xi)) and degree preserved
         # rowwise
-        xi = (xi.T * ratio).T
+        print(xi)
+        print(ratio)
+        if not sp.issparse(xi):
+            xi = (xi.T * ratio).T
+        else:
+            xi = (xi.T.multiply(ratio)).T
+        print(xi)
 
         # return the xi rounded to integers
         return np.round(xi)
 
+    def compute_rmse(indegs, outdegs, xi, xi_sum, m):
+        val = ((xi/xi_sum*m).sum(axis=1) - outdegs)
+        out_sum = np.array((xi/xi_sum*m).sum(axis=1))
+        out_sum = out_sum.reshape(max(out_sum.shape))
+        in_sum = np.array((xi/xi_sum*m).sum(axis=0))
+        in_sum = in_sum.reshape(max(in_sum.shape))
+        rmse = np.sqrt( ( (out_sum - outdegs)**2 ).sum() )/2 + np.sqrt( ( (in_sum - indegs)**2 ).sum())/2
+        return rmse
+
     ## pass adjacency and non-corrected xi. if verbose=T,
     ## print root mean squared error (rmse)
 
-    if not sparsexi and sp.issparse(xi_input):
+    if (not sparsexi) and sp.issparse(xi_input):
         xi = xi_input.toarray()
     else:
         xi = xi_input
@@ -99,19 +117,14 @@ def fitXi(adj, xi_input, tol=1e-2, sparsexi=False, verbose=False):
     # the total number of edges
     m = adj.sum()
     ## if Scipy
-    if sparsexi:
-        indegs = np.array(adj.sum(0))
-        outdegs = np.array(adj.sum(1))
-        indegs = np.reshape(indegs, max(indegs.shape))
-        outdegs = np.reshape(outdegs, max(outdegs.shape))
-    else:
-        indegs = adj.sum(0)
-        outdegs = adj.sum(1)
+    indegs = np.array(adj.sum(0))
+    outdegs = np.array(adj.sum(1))
+    indegs = np.reshape(indegs, max(indegs.shape))
+    outdegs = np.reshape(outdegs, max(outdegs.shape))
 
     # the baseline rmse
     xi_sum = xi.sum()
-    val = ((xi/xi_sum*m).sum(1) - outdegs)
-    rmse = np.sqrt( ( ((xi/xi_sum*m).sum(axis=1) - outdegs)**2 ).sum() )/2 + np.sqrt( ( ((xi/xi_sum*m).sum(axis=0) - indegs)**2 ).sum() )/2
+    rmse = compute_rmse(indegs, outdegs, xi, xi_sum, m)
     rmseold = rmse.copy()
     if verbose:
        print('rmse =',rmse)
@@ -119,13 +132,18 @@ def fitXi(adj, xi_input, tol=1e-2, sparsexi=False, verbose=False):
     # loop to alternatively fix rows and columns
     while True:
         # fix row degrees
+        print(outdegs.shape)
+        print('xi: ' + str(xi.shape))
         xi = xifix_row(m = m, xi = xi, degs = outdegs)
+        print('xi: ' + str(xi.shape))
         # fix column degrees applying xifit_row to transposed xi
+        print(indegs.shape)
         xi = ( xifix_row(m = m, xi = xi.T, degs = indegs) ).T
+        print(xi.shape)
 
         # compute rmse
         xi_sum = xi.sum()
-        rmse = np.sqrt( ( ((xi/xi_sum*m).sum(1) - outdegs)**2 ).sum() )/2 + np.sqrt( ( ((xi/xi_sum*m).sum(0) - indegs)**2 ).sum() )/2
+        rmse = compute_rmse(indegs, outdegs, xi, xi_sum, m)
         if verbose:
             print('rmse =',rmse)
 

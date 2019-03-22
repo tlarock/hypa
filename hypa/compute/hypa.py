@@ -36,7 +36,7 @@ class Hypa:
         self.rphyper = ro.r['phyper']
 
 
-    def construct_hypa_network(self, k=2, log=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
+    def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
         """
         Function to compute the significant pathways from a Paths object.
 
@@ -70,7 +70,7 @@ class Hypa:
             print('Computing the k={} order Xi...'.format(k))
 
         ## Compute Xi TODO assuming sparse matrix here
-        self.Xi, self.network = computeXiHigherOrder(self.paths, k=k, sparsexi=True, noxi=constant_xi)
+        self.Xi, self.network = computeXiHigherOrder(self.paths, k=k, sparsexi=sparsexi, noxi=constant_xi)
         self.adjacency = self.network.adjacency_matrix()
 
         if redistribute and not constant_xi:
@@ -78,7 +78,7 @@ class Hypa:
                 print('Fitting Xi...')
 
             ## TODO again assuming sparse matrix
-            self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=True tol=xifittol, verbose=verbose)
+            self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xifittol, verbose=verbose)
 
         reverse_name_dict = {val:key for key,val in self.network.node_to_name_map().items()}
 
