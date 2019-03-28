@@ -37,6 +37,33 @@ class Hypa:
         self.randomgraph = ro.r['RandomGraph']
         self.ghype_r = ghype_r
 
+    def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
+        if verbose:
+            print('Computing the k={} order Xi...'.format(k))
+
+        ## Compute Xi TODO assuming sparse matrix here
+        self.Xi, self.network = computeXiHigherOrder(self.paths, k=k, sparsexi=sparsexi, noxi=constant_xi)
+        self.adjacency = self.network.adjacency_matrix()
+
+        if redistribute and not constant_xi:
+            if verbose:
+                print('Fitting Xi...')
+
+            ## TODO again assuming sparse matrix
+            self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xifittol, verbose=verbose)
+
+
+        self.adjacency = self.network.adjacency_matrix()
+
+
+    def initialize_ghyper(self):
+        adj = self.adjacency.toarray()
+        adjr = ro.r.matrix(adj, nrow=adj.shape[0], ncol=adj.shape[1])
+        ro.r.assign('adj', adjr)
+        ## Use constant omega
+        omega = np.ones(adj.shape)
+        self.ghype_r = self.hypernets.ghype(adj, directed=True, selfloops=False, xi=self.Xi.toarray(), omega=omega)
+
 
     def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
         """
@@ -68,24 +95,11 @@ class Hypa:
 
 
         """
-        if verbose:
-            print('Computing the k={} order Xi...'.format(k))
 
-        ## Compute Xi TODO assuming sparse matrix here
-        self.Xi, self.network = computeXiHigherOrder(self.paths, k=k, sparsexi=sparsexi, noxi=constant_xi)
-        self.adjacency = self.network.adjacency_matrix()
-
-        if redistribute and not constant_xi:
-            if verbose:
-                print('Fitting Xi...')
-
-            ## TODO again assuming sparse matrix
-            self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xifittol, verbose=verbose)
+        ## create network and Xi matrix
+        self.initialize_xi(k, redistribute, xifittol, verbose)
 
         reverse_name_dict = {val:key for key,val in self.network.node_to_name_map().items()}
-
-        self.adjacency = self.network.adjacency_matrix()
-
 
         ## construct the network of underrepresented pathways
         self.hypa_net = pp.Network(directed=True)
@@ -114,13 +128,10 @@ class Hypa:
 
 
     def draw_sample(self,k=2):
+        assert self.Xi is not None, "Please call initialize_xi() before draw_sample()."
+
         if self.ghype_r is None:
-            adj = self.adjacency.toarray()
-            adjr = ro.r.matrix(adj, nrow=adj.shape[0], ncol=adj.shape[1])
-            ro.r.assign('adj', adjr)
-            ## Use constant omega
-            omega = np.ones(adj.shape)
-            self.ghype_r = self.hypernets.ghype(adj, directed=True, selfloops=False, xi=self.Xi.toarray(), omega=omega)
+            self.initialize_ghyper()
 
         sampled_adj = self.randomgraph(1, self.ghype_r, m=self.adjacency.sum(), multinomial=False)
 
