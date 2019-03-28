@@ -14,7 +14,7 @@ class Hypa:
     '''
     Class for computing hypa scores on a DeBruijn graph given pathway data.
     '''
-    def __init__(self, paths):
+    def __init__(self, paths, ghype_r=None):
         """
         Initialize class with pathpy.paths object.
 
@@ -26,14 +26,16 @@ class Hypa:
         """
 
         self.paths = paths
-        self.initialize_R()
+        self.initialize_R(ghype_r)
 
-    def initialize_R(self):
+    def initialize_R(self, ghype_r):
         '''Initialize rpy2 functions'''
         rpy2.robjects.numpy2ri.activate()
 
-        hypernets = importr('hypernets')
+        self.hypernets = importr('hypernets')
         self.rphyper = ro.r['phyper']
+        self.randomgraph = ro.r['RandomGraph']
+        self.ghype_r = ghype_r
 
 
     def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
@@ -109,3 +111,18 @@ class Hypa:
         Compute hypa score using hypernets in R.
         """
         return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
+
+
+    def draw_sample(self,k=2):
+        if self.ghype_r is None:
+            adj = self.adjacency.toarray()
+            adjr = ro.r.matrix(adj, nrow=adj.shape[0], ncol=adj.shape[1])
+            ro.r.assign('adj', adjr)
+            ## Use constant omega
+            omega = np.ones(adj.shape)
+            self.ghype_r = self.hypernets.ghype(adj, directed=True, selfloops=False, xi=self.Xi.toarray(), omega=omega)
+
+        sampled_adj = self.randomgraph(1, self.ghype_r, m=self.adjacency.sum(), multinomial=False)
+
+        return np.array(sampled_adj)
+
