@@ -40,6 +40,26 @@ class Hypa:
         self.ghype_r_cnst = None
 
     def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
+        r"""
+        Initialize the xi matrix for the paths object.
+
+        Parameters
+        ----------
+        k: int
+            Order to compute xi at
+        sparsexi: logical
+            If True, use scipy sparse matrices for computations. Default True.
+        redistribute: logical
+            If True, call fitXi on the matrix to redistribute excess weights. Default True.
+        xifittol: float
+            Error tolerance in expected weight for fitXi call. Ignored if redistribute is False.
+        constant_xi: logical
+            If True, also compute the Xi matrix that represents the null model where all weight is equally distributed.
+        verbose: logical
+            If True, print out details of what is happening.
+
+
+        """
         if verbose:
             print('Computing the k={} order Xi...'.format(k))
 
@@ -63,6 +83,14 @@ class Hypa:
 
 
     def initialize_ghyper(self, constant_xi=False):
+        r"""
+        Initialize the ghype_r rpy2 object.
+
+        Parameters
+        ----------
+        constant_xi: logical
+            If True, also compute the Xi matrix that represents the null model where all weight is equally distributed.
+        """
         adj = self.adjacency.toarray()
         adjr = ro.r.matrix(adj, nrow=adj.shape[0], ncol=adj.shape[1])
         ro.r.assign('adj', adjr)
@@ -139,6 +167,21 @@ class Hypa:
 
 
     def draw_sample(self, constant_xi=False):
+        r"""
+        Draw a sample from the hypergeometric ensemble.
+
+        Parameters
+        ----------
+        constant_xi: logical
+            If True, draws from the hypergeometric ensemble with constant xi distributed evenly across the possible edges. 
+                Default is False, which uses the fit version of the Xi matrix.
+
+        Returns
+        --------
+        sampled_adj: np.array
+            An array containing the sampled adjacency matrix.
+
+        """
         assert (self.Xi is not None and not constant_xi) or (self.Xi_cnst is not None and constant_xi) , "Please call initialize_xi() with correct parameters before draw_sample()."
 
         if (not constant_xi) and self.ghype_r is None:
