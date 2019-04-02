@@ -41,8 +41,10 @@ class Hypa:
         if verbose:
             print('Computing the k={} order Xi...'.format(k))
 
+        ## Assign k
+        self.k = k
         ## Compute Xi TODO assuming sparse matrix here
-        self.Xi, self.network = computeXiHigherOrder(self.paths, k=k, sparsexi=sparsexi, noxi=constant_xi)
+        self.Xi, self.network = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, noxi=constant_xi)
         self.adjacency = self.network.adjacency_matrix()
 
         if redistribute and not constant_xi:
@@ -95,9 +97,11 @@ class Hypa:
 
 
         """
+        ## assign k
+        self.k = k
 
         ## create network and Xi matrix
-        self.initialize_xi(k, redistribute, xifittol, verbose)
+        self.initialize_xi(self.k, redistribute, xifittol, verbose)
 
         reverse_name_dict = {val:key for key,val in self.network.node_to_name_map().items()}
 
@@ -127,7 +131,7 @@ class Hypa:
         return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
 
 
-    def draw_sample(self,k=2):
+    def draw_sample(self):
         assert self.Xi is not None, "Please call initialize_xi() before draw_sample()."
 
         if self.ghype_r is None:
