@@ -5,5 +5,6 @@ hypa
 hypa stands for something
 
 """
-from .compute import *
-from .hypernet import *
+from .hypa import *
+
+__all__ = ["hypa"]

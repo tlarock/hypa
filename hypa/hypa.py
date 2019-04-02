@@ -8,7 +8,8 @@ import rpy2.robjects.numpy2ri
 from rpy2.robjects.packages import importr
 
 ## import my code to work with hypernets
-from ..hypernet import computeXiHigherOrder, fitXi, ghype
+from .ghype import ghype
+from .computexi import computeXiHigherOrder, fitXi
 
 class Hypa:
     '''
