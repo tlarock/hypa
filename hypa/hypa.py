@@ -37,6 +37,7 @@ class Hypa:
         self.rphyper = ro.r['phyper']
         self.randomgraph = ro.r['RandomGraph']
         self.ghype_r = ghype_r
+        self.ghype_r_cnst = None
 
     def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
         if verbose:
@@ -45,27 +46,32 @@ class Hypa:
         ## Assign k
         self.k = k
         ## Compute Xi TODO assuming sparse matrix here
-        self.Xi, self.network = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, noxi=constant_xi)
+        self.Xi, self.network = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=False)
         self.adjacency = self.network.adjacency_matrix()
 
-        if redistribute and not constant_xi:
+        if redistribute:
             if verbose:
                 print('Fitting Xi...')
 
             ## TODO again assuming sparse matrix
             self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xifittol, verbose=verbose)
 
+        if constant_xi:
+            self.Xi_cnst, _ = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=constant_xi)
 
         self.adjacency = self.network.adjacency_matrix()
 
 
-    def initialize_ghyper(self):
+    def initialize_ghyper(self, constant_xi=False):
         adj = self.adjacency.toarray()
         adjr = ro.r.matrix(adj, nrow=adj.shape[0], ncol=adj.shape[1])
         ro.r.assign('adj', adjr)
         ## Use constant omega
         omega = np.ones(adj.shape)
         self.ghype_r = self.hypernets.ghype(adj, directed=True, selfloops=False, xi=self.Xi.toarray(), omega=omega)
+
+        if constant_xi:
+            self.ghype_r_cnst = self.hypernets.ghype(adj, directed=True, selfloops=False, xi=self.Xi_cnst.toarray(), omega=omega)
 
 
     def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
@@ -132,13 +138,19 @@ class Hypa:
         return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
 
 
-    def draw_sample(self):
-        assert self.Xi is not None, "Please call initialize_xi() before draw_sample()."
+    def draw_sample(self, constant_xi=False):
+        assert (self.Xi is not None and not constant_xi) or (self.Xi_cnst is not None and constant_xi) , "Please call initialize_xi() with correct parameters before draw_sample()."
 
-        if self.ghype_r is None:
-            self.initialize_ghyper()
+        if (not constant_xi) and self.ghype_r is None:
+            self.initialize_ghyper(constant_xi=constant_xi)
 
-        sampled_adj = self.randomgraph(1, self.ghype_r, m=self.adjacency.sum(), multinomial=False)
+        if constant_xi and self.ghype_r_cnst is None:
+            self.initialize_ghyper(constant_xi=constant_xi)
+
+        if not constant_xi:
+            sampled_adj = self.randomgraph(1, self.ghype_r, m=self.adjacency.sum(), multinomial=False)
+        else:
+            sampled_adj = self.randomgraph(1, self.ghype_r_cnst, m=self.adjacency.sum(), multinomial=False)
 
         return np.array(sampled_adj)
 

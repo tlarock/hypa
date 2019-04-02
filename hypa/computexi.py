@@ -2,12 +2,20 @@ import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
 
-def computeXiHigherOrder(paths, k = 2, sparsexi=False, noxi=False):
-    """
-    Compute the Xi matrix for higher order networks, starting from a HigherOrderNetwork pathpy object.
-    ## in the higher order case
-    # (1) Self-loops are completely disallowed
-    # (2) Only viable edges count towards the probablity
+def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
+    r"""
+    Compute the Xi matrix for higher order networks.
+
+    Parameters
+    ----------
+    paths: pp.Paths
+        Paths object
+    k: int
+        Order to compute the Xi
+    sparsexi: logical
+        If True, use scipy sparse matrices. Default False (numpy arrays).
+    constant_xi: logical
+        If True, use a constant xi matrix (null model). Default False. TODO: Better explanation
 
     """
     separator = paths.separator
@@ -24,7 +32,7 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, noxi=False):
     first_order = pp.HigherOrderNetwork(paths, k=1, separator=separator)
     possible_paths = pp.HigherOrderNetwork.generate_possible_paths(first_order, k)
 
-    if noxi:
+    if constant_xi:
         xi_const = 0
         edges_sofar = 0
 
@@ -36,7 +44,8 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, noxi=False):
             xi_val = higher_order.nodes[source]['outweight'].sum() * higher_order.nodes[target]['inweight'].sum()
             if xi_val == 0:
                 continue
-            if noxi:
+
+            if constant_xi:
                 network.add_edge(source, target)
                 edges_sofar += 1
                 xi_const += (xi_val - xi_const) / edges_sofar
@@ -46,7 +55,8 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, noxi=False):
             ## add the total observations of this path to the return network
             observations = paths.paths[k][path].sum()
             return_network.add_edge(source, target, weight=float(observations))
-    if noxi:
+
+    if constant_xi:
         xi_const = np.round(xi_const)
         for e in network.edges:
             network.edges[e]['weight'] = xi_const
