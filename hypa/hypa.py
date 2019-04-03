@@ -166,7 +166,7 @@ class Hypa:
         return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
 
 
-    def draw_sample(self, constant_xi=False):
+    def draw_sample(self, constant_xi=False, sparse=True):
         r"""
         Draw a sample from the hypergeometric ensemble.
 
@@ -195,5 +195,10 @@ class Hypa:
         else:
             sampled_adj = self.randomgraph(1, self.ghype_r_cnst, m=self.adjacency.sum(), multinomial=False)
 
-        return np.array(sampled_adj)
+        if sparse:
+            sampled_adj = sp.coo_matrix(sampled_adj)
+        else:
+            sampled_adj = np.array(sampled_adj)
+
+        return sampled_adj
 
