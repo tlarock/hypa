@@ -102,7 +102,7 @@ class Hypa:
             self.ghype_r_cnst = self.hypernets.ghype(adj, directed=True, selfloops=False, xi=self.Xi_cnst.toarray(), omega=omega)
 
 
-    def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
+    def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, baseline=False, constant_xi=False, verbose=True):
         """
         Function to compute the significant pathways from a Paths object.
 
@@ -136,15 +136,24 @@ class Hypa:
         self.k = k
 
         ## create network and Xi matrix
-        self.initialize_xi(self.k, redistribute, xifittol, verbose)
+        if not baseline:
+            self.initialize_xi(k=self.k, sparsexi=sparsexi, redistribute=redistribute, xifittol=xifittol, constant_xi=constant_xi, verbose=verbose)
+
+            if not constant_xi:
+                xi = self.Xi
+            else:
+                xi = self.Xi_cnst
+
+            xisum = xi.sum()
+            xicoo = sp.coo_matrix(xi)
+        else:
+            xicoo = sp.coo_matrix(self.adjacency)
 
         reverse_name_dict = {val:key for key,val in self.network.node_to_name_map().items()}
 
         ## construct the network of underrepresented pathways
         self.hypa_net = pp.Network(directed=True)
         adjsum = self.adjacency.sum()
-        xisum = self.Xi.sum()
-        xicoo = sp.coo_matrix(self.Xi)
         for u,v,xival in zip(xicoo.row, xicoo.col, xicoo.data):
         # for u,v in edge_likelihood_sortidx:
             source, target = reverse_name_dict[u],reverse_name_dict[v]
@@ -170,10 +179,12 @@ class Hypa:
         r"""
         Draw a sample from the hypergeometric ensemble.
 
+        TODO: Add an option/function to return the sample as a Paths object.
+
         Parameters
         ----------
         constant_xi: logical
-            If True, draws from the hypergeometric ensemble with constant xi distributed evenly across the possible edges. 
+            If True, draws from the hypergeometric ensemble with constant xi distributed evenly across the possible edges.
                 Default is False, which uses the fit version of the Xi matrix.
 
         Returns
