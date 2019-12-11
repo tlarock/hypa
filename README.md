@@ -21,7 +21,9 @@ You can install `hypa` as follows:
 If you have installation issues that you believe are directly related to `hypa`, please feel free to open an issue on this github repository. We do not maintain `rpy2` and so are probably not able to help with installation issues.
 
 ## Test
+A simple test (based on the toy example in the paper) to make sure things are working is to paste the following code block into an `ipython` session:
 ```
+import numpy as np
 import pathpy as pp
 import hypa
 paths = pp.Paths()
@@ -33,4 +35,6 @@ hy = hypa.Hypa(paths)
 hy.construct_hypa_network(k=2)
 print(hy.hypa_net)
 print(hy.hypa_net.edges)
+for edge, edge_data in hy.hypa_net.edges.items(): 
+  print("edge: {} hypa score: {}".format(edge, np.exp(edge_data['pval']))) 
 ```
