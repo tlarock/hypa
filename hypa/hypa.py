@@ -2,12 +2,12 @@ import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
 
-## import hypernets from R
+## import ghypernet from R
 import rpy2.robjects as ro
 import rpy2.robjects.numpy2ri
 from rpy2.robjects.packages import importr
 
-## import my code to work with hypernets
+## import my code to work with ghypernet
 from .ghype import ghype
 from .computexi import computeXiHigherOrder, fitXi
 
@@ -33,9 +33,9 @@ class Hypa:
         '''Initialize rpy2 functions'''
         rpy2.robjects.numpy2ri.activate()
 
-        self.hypernets = importr('hypernets')
+        self.ghypernet = importr('ghypernet')
         self.rphyper = ro.r['phyper']
-        self.randomgraph = ro.r['RandomGraph']
+        self.randomgraph = ro.r['rghype']
         self.ghype_r = ghype_r
         self.ghype_r_cnst = None
 
@@ -96,10 +96,10 @@ class Hypa:
         ro.r.assign('adj', adjr)
         ## Use constant omega
         omega = np.ones(adj.shape)
-        self.ghype_r = self.hypernets.ghype(adj, directed=True, selfloops=False, xi=self.Xi.toarray(), omega=omega)
+        self.ghype_r = self.ghypernet.ghype(adj, directed=True, selfloops=False, xi=self.Xi.toarray(), omega=omega)
 
         if constant_xi:
-            self.ghype_r_cnst = self.hypernets.ghype(adj, directed=True, selfloops=False, xi=self.Xi_cnst.toarray(), omega=omega)
+            self.ghype_r_cnst = self.ghypernet.ghype(adj, directed=True, selfloops=False, xi=self.Xi_cnst.toarray(), omega=omega)
 
 
     def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, baseline=False, constant_xi=False, verbose=True):
@@ -170,7 +170,7 @@ class Hypa:
 
     def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
         """
-        Compute hypa score using hypernets in R.
+        Compute hypa score using ghypernet in R.
         """
         return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
 
@@ -212,4 +212,3 @@ class Hypa:
             sampled_adj = np.array(sampled_adj)
 
         return sampled_adj
-
