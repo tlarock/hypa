@@ -21,7 +21,7 @@ You can install `hypa` as follows:
 If you have installation issues that you believe are directly related to `hypa`, please feel free to open an issue on this github repository. We do not maintain `rpy2` and so are probably not able to help with installation issues.
 
 ## Test
-A simple test (based on the toy example in the paper) to make sure things are working is to paste the following code block into an `ipython` session:
+A simple test (based on the toy example in the paper) to make sure things are working is to paste the following code block into an `ipython` session or run it as a script:
 ```
 import numpy as np
 import pathpy as pp
