@@ -65,9 +65,10 @@ class Hypa:
 
         ## Assign k
         self.k = k
-        ## Compute Xi TODO assuming sparse matrix here
-        self.Xi, self.network = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=False)
-        self.adjacency = self.network.adjacency_matrix()
+        ## TODO assuming sparse matrix here
+        ## Compute Xi. Also returns a network object.
+        self.Xi, self.hypa_net = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=False)
+        self.adjacency = self.hypa_net.adjacency_matrix()
 
         if redistribute:
             if verbose:
@@ -79,7 +80,7 @@ class Hypa:
         if constant_xi:
             self.Xi_cnst, _ = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=constant_xi)
 
-        self.adjacency = self.network.adjacency_matrix()
+        self.adjacency = self.hypa_net.adjacency_matrix()
 
 
     def initialize_ghyper(self, constant_xi=False):
@@ -149,23 +150,22 @@ class Hypa:
         else:
             xicoo = sp.coo_matrix(self.adjacency)
 
-        reverse_name_dict = {val:key for key,val in self.network.node_to_name_map().items()}
+        reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
 
         ## construct the network of underrepresented pathways
-        self.hypa_net = pp.Network(directed=True)
         adjsum = self.adjacency.sum()
         for u,v,xival in zip(xicoo.row, xicoo.col, xicoo.data):
-        # for u,v in edge_likelihood_sortidx:
             source, target = reverse_name_dict[u],reverse_name_dict[v]
             pval = self.compute_hypa(self.adjacency[u,v], xival, xisum, adjsum, log_p=True)
             if xival == 0:
                 continue
 
             try:
-                attr = {'weight': self.network.edges[(source, target)]['weight'], 'pval':pval, 'xi':xival}
+                self.hypa_net.edges[(source, target)]['pval'] = pval
+                self.hypa_net.edges[(source, target)]['xi'] = xival
             except Exception as e:
                 attr = {'weight': 0.0, 'pval':pval, 'xi':xival}
-            self.hypa_net.add_edge(source, target, **attr)
+                self.hypa_net.add_edge(source, target, **attr)
 
 
     def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
