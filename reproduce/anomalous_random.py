@@ -390,7 +390,7 @@ def fbad_auc(max_k=3, n_samples=5):
     plt.savefig('output/randmod-auroc-baseline.pdf')
 
 
-def PROMISE_auc(max_k=3, n_samples=5):
+def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_frequency=0.0001, cores=1, strategy=1):
     '''
     Compute AUC for PROMISE baseline.
     '''
@@ -403,7 +403,7 @@ def PROMISE_auc(max_k=3, n_samples=5):
         print("computing for implanted anomaly length={}...".format(kt))
         for _ in range(n_samples):
             pnets, _, paths_data = generate_pnets_with_anomaly(kt, maxk=max_k)
-            pnets = compute_promise(pnets, paths_data, wy_datasets=25, mc_datasets=25, cores=7)
+            pnets = compute_promise(pnets, paths_data, wy_datasets, mc_datasets, minimum_frequency, cores, strategy)
             auc_kt = compute_roc(pnets, kt, plot=False, method='promise', alpha=1.0)
             for k,val in auc_kt:
                 auroc[kt][k].append(val)
@@ -441,4 +441,4 @@ if __name__=="__main__":
     #hypa_auc(max_k=5, n_samples=10)
     #print("Starting fbad_auc")
     #fbad_auc(max_k=5, n_samples=10)
-    PROMISE_auc(n_samples=1)
+    PROMISE_auc(max_k=4, n_samples=2, wy_datasets=25, mc_datasets=150, cores=28)
