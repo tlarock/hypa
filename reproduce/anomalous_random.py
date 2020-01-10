@@ -84,31 +84,6 @@ def honwalk2firstwalk(honvseq, sep=','):
     return k1walk
 
 
-'''
-def get_net_pval(adj1, net=None):
-    xi1 = cx.computeXi(adj1, True, selfloops=True)
-    # xi1[:,:] = xi1.mean()
-
-    ## construct the network of underrepresented pathways
-    adjsum = adj1.sum()
-    xisum = xi1.sum()
-
-    pval_net = pp.Network(directed=True)
-    for u in range(xi1.shape[0]):
-        for v in range(xi1.shape[1]):
-            xival = xi1[u,v]
-
-            pval = rphyper(adj1[u,v], xival, xisum-xival, adjsum, log_p = True)[0]
-            if xival == 0:
-                continue
-
-            attr = {'weight': adj1[u,v], 'pval':pval}#, 'xi':xival}
-            pval_net.add_edge(u, v, **attr)
-    return pval_net
-'''
-
-
-
 def compute_roc(pnets, truth_k=2, plot=True, output=None, baseline=False, alpha=0.5):
     """
     TODO: Fix for truth_k > 2
