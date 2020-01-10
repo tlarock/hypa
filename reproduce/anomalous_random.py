@@ -49,9 +49,6 @@ def create_truth(pnet, abundance=0.3, concentrate_all = True):
 
     return truth_over
 
-## CLEAN THIS MESS UP!!! THERE ARE REDUNDANT FUNCTIONS, ETC
-
-# takes in pval_net or normal net?
 def paths_from_hon(hon, sep=','):
     paths = pp.Paths()
     for e,d in hon.edges.items():
@@ -76,7 +73,7 @@ def highV2lowE(v, sep=','):
 
 def honwalk2firstwalk(honvseq, sep=','):
     """Takes a k-order node
-    Returns the corresponding k-1 order edge
+    Returns the corresponding path.
     """
     k1walk = honvseq[0].split(sep)
     for hv in honvseq[1:]:
@@ -84,16 +81,18 @@ def honwalk2firstwalk(honvseq, sep=','):
     return k1walk
 
 
-def compute_roc(pnets, truth_k=2, plot=True, output=None, baseline=False, alpha=0.5):
+def compute_roc(pnets, truth_k=2, plot=True, output=None, method='hypa', alpha=0.5):
     """
-    TODO: Fix for truth_k > 2
+    Compute Reciever Operating Characteristic for a given network
     """
+    assert method in ['hypa', 'fbad', 'promise'], \
+            "method must be one of hypa, fbad, or promise; not {}".format(method)
 
     k = max(list(pnets.keys()))
     auc_k = []
 
     for _k in range(1,k+1):
-        if baseline:
+        if method == 'baseline':
             edge_weights = [d['weight'] for _,d in pnets[_k].edges.items()]
             mean = np.mean(edge_weights)
             std = np.std(edge_weights)
@@ -107,10 +106,15 @@ def compute_roc(pnets, truth_k=2, plot=True, output=None, baseline=False, alpha=
             else:
                 y_true.append(0)
 
-            if not baseline:
+            if method == 'hypa':
                 y_score.append(np.exp(d['pval']))
-            else:
+            elif method == 'baseline':
                 if d['weight'] > (mean + std*alpha):
+                    y_score.append(1.0)
+                else:
+                    y_score.append(0.0)
+            elif method == 'promise':
+                if d['promise'] == True:
                     y_score.append(1.0)
                 else:
                     y_score.append(0.0)
@@ -348,7 +352,7 @@ def hypa_auc(max_k=3, n_samples=5):
     plt.savefig('output/randmod-auroc.pdf')
 
 
-def baseline_auc(max_k=3, n_samples=5):
+def fbad_auc(max_k=3, n_samples=5):
     '''
     Compute AUC for FBAD baseline.
     '''
@@ -385,15 +389,56 @@ def baseline_auc(max_k=3, n_samples=5):
     plt.tight_layout()
     plt.savefig('output/randmod-auroc-baseline.pdf')
 
+
+def PROMISE_auc(max_k=3, n_samples=5):
+    '''
+    Compute AUC for PROMISE baseline.
+    '''
+    from promise import compute_promise
+    auroc = {kt:{k:[] for k in range(1,max_k+1)} for kt in range(2,max_k+1)}
+
+    ## I need to make d['promise'] be True if edge is anomalous according to
+    ## PROMISE, false otherwise
+    for kt in range(2, max_k+1):
+        print("computing for implanted anomaly length={}...".format(kt))
+        for _ in range(n_samples):
+            pnets, _, paths_data = generate_pnets_with_anomaly(kt, maxk=max_k)
+            pnets = compute_promise(pnets, paths_data, wy_datasets=25, mc_datasets=25, cores=7)
+            auc_kt = compute_roc(pnets, kt, plot=False, method='promise', alpha=1.0)
+            for k,val in auc_kt:
+                auroc[kt][k].append(val)
+
+
+    draw.set_style()
+    for kt,d in auroc.items():
+        x = []
+        y = []
+        y_err = []
+        for _x, vals in d.items():
+            x.append(_x)
+            y.append(np.nanmean(vals))
+            y_err.append(np.nanstd(vals))
+
+        y, y_err = np.array(y), np.array(y_err)
+        plt.fill_between(x, y+y_err, y-y_err, alpha=0.25)
+        plt.plot(x, y, 'o-', label='$l={}$'.format(kt))
+
+    plt.plot((1,max(x)), (0.5,0.5), 'k--')
+    plt.ylim((0.,1.05))
+    plt.xlabel('Detection order')
+    plt.ylabel('AUC')
+    plt.legend(title='Anomaly length')
+    plt.tight_layout()
+    plt.savefig('output/randmod-auroc-promise.pdf')
+
+
 if __name__=="__main__":
     import pickle
-    from pathpy.algorithms.random_walk import generate_walk
-    import numpy as np
     import draw
     draw.set_style()
 
-
-    print("Startin hypa_auc")
-    hypa_auc(max_k=5, n_samples=10)
-    print("Starting baseline_auc")
-    baseline_auc(max_k=5, n_samples=10)
+    #print("Startin hypa_auc")
+    #hypa_auc(max_k=5, n_samples=10)
+    #print("Starting fbad_auc")
+    #fbad_auc(max_k=5, n_samples=10)
+    PROMISE_auc(n_samples=1)
