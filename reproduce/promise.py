@@ -46,7 +46,7 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
         sys.exit()
 
     ## Set up and execute ProMiSe.jar
-    PROMISE_args = ['java' ,'-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
+    PROMISE_args = ['java' , '-Xmx575G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
     PROMISE_args = list(map(str, PROMISE_args))
     try:
         ## save current working directory
@@ -65,6 +65,7 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
         exc_type, exc_value, exc_traceback = sys.exc_info()
         traceback.print_exception(exc_type, exc_value, exc_traceback,
                               limit=2, file=sys.stdout)
+        sys.exit()
 
     ## Read output of ProMiSe.jar and convert back to original node names
     reverse_mapping = {str(val):key for key,val in mapping.items()}
@@ -84,16 +85,18 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
                     path.append(reverse_mapping[entry])
 
             anom_paths.append(path)
+        f_in.close()
+        os.remove(sfsp_file)
     except Exception as e:
         exc_type, exc_value, exc_traceback = sys.exc_info()
         traceback.print_exception(exc_type, exc_value, exc_traceback,
                               limit=2, file=sys.stdout)
-
+        anom_paths=[]
 
     return anom_paths
 
 def compute_promise(networks, paths_data, wy_datasets=50, mc_datasets=1024, \
-            minimum_frequency=0.0001, cores=2, strategy=1):
+            minimum_frequency=0.0001, cores=2, strategy=1, promise_path='../../PROMISE/', redirect_output=True, outfile='tmp'):
     '''
     Return anomalous paths according to PROMISE
     '''
@@ -101,7 +104,9 @@ def compute_promise(networks, paths_data, wy_datasets=50, mc_datasets=1024, \
     converted_paths_str, mapping = convert_paths(paths_data)
     ## Run ProMiSe.jar on paths
     anomalous_paths = run_promise(converted_paths_str, mapping, p=wy_datasets,\
-                                  t=mc_datasets, theta=minimum_frequency, cores=cores)
+                                  t=mc_datasets, theta=minimum_frequency, \
+                                  cores=cores, promise_path=promise_path, \
+                                  redirect_output=redirect_output, output_filename=outfile)
     
     ## Mark anomalous edges in networks object 
     for path in anomalous_paths:
@@ -126,4 +131,4 @@ if __name__ == '__main__':
         hy.construct_hypa_network(k=k, verbose=False)
         pnets[k] =  hy.hypa_net
 
-    pnets = promise(pnets, paths)
+    pnets = compute_promise(pnets, paths, promise_path='/scratch/larock.t/PROMISE/')

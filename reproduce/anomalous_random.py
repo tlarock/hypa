@@ -1,6 +1,9 @@
 import random
+import pickle
 import numpy as np
 from collections import defaultdict
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import pathpy as pp
@@ -114,7 +117,7 @@ def compute_roc(pnets, truth_k=2, plot=True, output=None, method='hypa', alpha=0
                 else:
                     y_score.append(0.0)
             elif method == 'promise':
-                if d['promise'] == True:
+                if 'promise' in d.keys():
                     y_score.append(1.0)
                 else:
                     y_score.append(0.0)
@@ -390,7 +393,7 @@ def fbad_auc(max_k=3, n_samples=5):
     plt.savefig('output/randmod-auroc-baseline.pdf')
 
 
-def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_frequency=0.0001, cores=1, strategy=1):
+def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_frequency=0.0001, cores=1, strategy=1, promise_path='../../PROMISE',redirect_output=True, outfile='tmp'):
     '''
     Compute AUC for PROMISE baseline.
     '''
@@ -400,40 +403,42 @@ def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_
     ## I need to make d['promise'] be True if edge is anomalous according to
     ## PROMISE, false otherwise
     for kt in range(2, max_k+1):
-        print("computing for implanted anomaly length={}...".format(kt))
+        print("computing for implanted anomaly length={}...".format(kt), flush=True)
         for _ in range(n_samples):
+            print("Sample: {}".format(_), flush=True)
             pnets, _, paths_data = generate_pnets_with_anomaly(kt, maxk=max_k)
-            pnets = compute_promise(pnets, paths_data, wy_datasets, mc_datasets, minimum_frequency, cores, strategy)
+            pnets = compute_promise(pnets, paths_data, wy_datasets, mc_datasets, minimum_frequency, cores, strategy, promise_path, outfile=outfile, redirect_output=redirect_output)
             auc_kt = compute_roc(pnets, kt, plot=False, method='promise', alpha=1.0)
             for k,val in auc_kt:
                 auroc[kt][k].append(val)
 
+            with open('output/auroc-{}_T-4096.pickle'.format(kt), 'wb') as f:
+                pickle.dump(auroc, f)
 
-    draw.set_style()
-    for kt,d in auroc.items():
-        x = []
-        y = []
-        y_err = []
-        for _x, vals in d.items():
-            x.append(_x)
-            y.append(np.nanmean(vals))
-            y_err.append(np.nanstd(vals))
+        draw.set_style()
+        for kt,d in auroc.items():
+            x = []
+            y = []
+            y_err = []
+            for _x, vals in d.items():
+                x.append(_x)
+                y.append(np.nanmean(vals))
+                y_err.append(np.nanstd(vals))
 
-        y, y_err = np.array(y), np.array(y_err)
-        plt.fill_between(x, y+y_err, y-y_err, alpha=0.25)
-        plt.plot(x, y, 'o-', label='$l={}$'.format(kt))
+            y, y_err = np.array(y), np.array(y_err)
+            plt.fill_between(x, y+y_err, y-y_err, alpha=0.25)
+            plt.plot(x, y, 'o-', label='$l={}$'.format(kt))
 
-    plt.plot((1,max(x)), (0.5,0.5), 'k--')
-    plt.ylim((0.,1.05))
-    plt.xlabel('Detection order')
-    plt.ylabel('AUC')
-    plt.legend(title='Anomaly length')
-    plt.tight_layout()
-    plt.savefig('output/randmod-auroc-promise.pdf')
+        plt.plot((1,max(x)), (0.5,0.5), 'k--')
+        plt.ylim((0.,1.05))
+        plt.xlabel('Detection order')
+        plt.ylabel('AUC')
+        plt.legend(title='Anomaly length')
+        plt.tight_layout()
+        plt.savefig('output/randmod-auroc-promise-{}_T-4096.pdf'.format(kt))
 
 
 if __name__=="__main__":
-    import pickle
     import draw
     draw.set_style()
 
@@ -441,4 +446,5 @@ if __name__=="__main__":
     #hypa_auc(max_k=5, n_samples=10)
     #print("Starting fbad_auc")
     #fbad_auc(max_k=5, n_samples=10)
-    PROMISE_auc(max_k=4, n_samples=2, wy_datasets=25, mc_datasets=150, cores=28)
+    #PROMISE_auc(max_k=4, n_samples=5, wy_datasets=25, mc_datasets=150, cores=56, promise_path='/scratch/larock.t/PROMISE/')
+    PROMISE_auc(max_k=5, n_samples=3, wy_datasets=100, mc_datasets=4096, minimum_frequency=0.1, cores=62, promise_path='/scratch/larock.t/PROMISE/',redirect_output=False, outfile='tmp4096')
