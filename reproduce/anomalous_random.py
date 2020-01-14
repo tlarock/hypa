@@ -393,7 +393,7 @@ def fbad_auc(max_k=3, n_samples=5):
     plt.savefig('output/randmod-auroc-baseline.pdf')
 
 
-def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_frequency=0.0001, cores=1, strategy=1, promise_path='../../PROMISE',redirect_output=True, outfile='tmp'):
+def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_frequency=0.0001, cores=1, strategy=1, promise_path='../../PROMISE/',redirect_output=True, outfile='tmp'):
     '''
     Compute AUC for PROMISE baseline.
     '''
@@ -406,36 +406,36 @@ def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_
         print("computing for implanted anomaly length={}...".format(kt), flush=True)
         for _ in range(n_samples):
             print("Sample: {}".format(_), flush=True)
-            pnets, _, paths_data = generate_pnets_with_anomaly(kt, maxk=max_k)
+            pnets, _, paths_data = generate_pnets_with_anomaly(kt, maxk=max_k, num_seqs = 500)
             pnets = compute_promise(pnets, paths_data, wy_datasets, mc_datasets, minimum_frequency, cores, strategy, promise_path, outfile=outfile, redirect_output=redirect_output)
             auc_kt = compute_roc(pnets, kt, plot=False, method='promise', alpha=1.0)
             for k,val in auc_kt:
                 auroc[kt][k].append(val)
 
-            with open('output/auroc-{}_T-4096.pickle'.format(kt), 'wb') as f:
+            with open('output/auroc-{}_P-{}_T-{}.pickle'.format(kt, wy_datasets, mc_datasets), 'wb') as f:
                 pickle.dump(auroc, f)
 
-        draw.set_style()
-        for kt,d in auroc.items():
-            x = []
-            y = []
-            y_err = []
-            for _x, vals in d.items():
-                x.append(_x)
-                y.append(np.nanmean(vals))
-                y_err.append(np.nanstd(vals))
+    draw.set_style()
+    for kt,d in auroc.items():
+        x = []
+        y = []
+        y_err = []
+        for _x, vals in d.items():
+            x.append(_x)
+            y.append(np.nanmean(vals))
+            y_err.append(np.nanstd(vals))
 
-            y, y_err = np.array(y), np.array(y_err)
-            plt.fill_between(x, y+y_err, y-y_err, alpha=0.25)
-            plt.plot(x, y, 'o-', label='$l={}$'.format(kt))
+        y, y_err = np.array(y), np.array(y_err)
+        plt.fill_between(x, y+y_err, y-y_err, alpha=0.25)
+        plt.plot(x, y, 'o-', label='$l={}$'.format(kt))
 
-        plt.plot((1,max(x)), (0.5,0.5), 'k--')
-        plt.ylim((0.,1.05))
-        plt.xlabel('Detection order')
-        plt.ylabel('AUC')
-        plt.legend(title='Anomaly length')
-        plt.tight_layout()
-        plt.savefig('output/randmod-auroc-promise-{}_T-4096.pdf'.format(kt))
+    plt.plot((1,max(x)), (0.5,0.5), 'k--')
+    plt.ylim((0.,1.05))
+    plt.xlabel('Detection order')
+    plt.ylabel('AUC')
+    plt.legend(title='Anomaly length')
+    plt.tight_layout()
+    plt.savefig('output/randmod-auroc-promise_P-{}_T-{}.pdf'.format(wy_datasets, mc_datasets))
 
 
 if __name__=="__main__":
@@ -446,5 +446,8 @@ if __name__=="__main__":
     #hypa_auc(max_k=5, n_samples=10)
     #print("Starting fbad_auc")
     #fbad_auc(max_k=5, n_samples=10)
+    wy_datasets=50
+    mc_datasets=1024
     #PROMISE_auc(max_k=4, n_samples=5, wy_datasets=25, mc_datasets=150, cores=56, promise_path='/scratch/larock.t/PROMISE/')
-    PROMISE_auc(max_k=5, n_samples=3, wy_datasets=100, mc_datasets=4096, minimum_frequency=0.1, cores=62, promise_path='/scratch/larock.t/PROMISE/',redirect_output=False, outfile='tmp4096')
+    PROMISE_auc(max_k=5, n_samples=3, wy_datasets=wy_datasets, mc_datasets=mc_datasets, \
+                minimum_frequency=0.1, cores=6, redirect_output=False, outfile='tmp-{}-{}'.format(wy_datasets, mc_datasets))
