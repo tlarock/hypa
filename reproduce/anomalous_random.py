@@ -447,4 +447,4 @@ if __name__=="__main__":
     #print("Starting fbad_auc")
     #fbad_auc(max_k=5, n_samples=10)
     #PROMISE_auc(max_k=4, n_samples=5, wy_datasets=25, mc_datasets=150, cores=56, promise_path='/scratch/larock.t/PROMISE/')
-    PROMISE_auc(max_k=5, n_samples=3, wy_datasets=100, mc_datasets=4096, minimum_frequency=0.1, cores=62, promise_path='/scratch/larock.t/PROMISE/',redirect_output=False, outfile='tmp4096')
+    PROMISE_auc(max_k=5, n_samples=3, wy_datasets=100, mc_datasets=4096, minimum_frequency=0.1, cores=32, promise_path='/scratch/larock.t/PROMISE/',redirect_output=False, outfile='tmp4096')
