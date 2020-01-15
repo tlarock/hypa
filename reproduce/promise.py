@@ -46,7 +46,7 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
         sys.exit()
 
     ## Set up and execute ProMiSe.jar
-    PROMISE_args = ['java' , '-Xmx575G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
+    PROMISE_args = ['java' , '-Xmx550G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
     PROMISE_args = list(map(str, PROMISE_args))
     try:
         ## save current working directory
@@ -107,7 +107,7 @@ def compute_promise(networks, paths_data, wy_datasets=50, mc_datasets=1024, \
                                   t=mc_datasets, theta=minimum_frequency, \
                                   cores=cores, promise_path=promise_path, \
                                   redirect_output=redirect_output, output_filename=outfile)
-    
+
     ## Mark anomalous edges in networks object 
     for path in anomalous_paths:
         k = len(path) - 1
