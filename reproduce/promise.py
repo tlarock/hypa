@@ -32,7 +32,6 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
     Accepts an SPMF formatted string, prints it to the promise/data directory
     at output_filename.txt, runs ProMiSe, reads output, returns significant paths.
     '''
-    
     ## Write SPMF string to a file that ProMiSe.jar can find
     try:
         data_path = promise_path + 'data/' + output_filename + '.txt'
@@ -45,32 +44,70 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
                               limit=2, file=sys.stdout)
         sys.exit()
 
+    sfsp_file = 'data/' + output_filename + '_SFSP.txt'
+    pydir = os.getcwd()
     ## Set up and execute ProMiSe.jar
-    PROMISE_args = ['java' , '-Xmx12G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
-    PROMISE_args = list(map(str, PROMISE_args))
-    try:
-        ## save current working directory
-        cwd = os.getcwd()
-        ## switch to ProMiSe directory and execute Java code
-        os.chdir(promise_path)
-        if not redirect_output:
-            subprocess.run(PROMISE_args, check=True)
-        else:
-            subprocess.run(PROMISE_args, check=True, \
-                           stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'))
-        
-        ## return to hypa working directory
-        os.chdir(cwd)
-    except Exception as e:
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        traceback.print_exception(exc_type, exc_value, exc_traceback,
-                              limit=2, file=sys.stdout)
-        sys.exit()
+    tries = 10
+    maximum_theta = theta+0.01*tries
+    minimum_theta = theta-0.01*tries
+    tried_thetas=[]
+    success = False
+    while minimum_theta <= theta <= maximum_theta:
+        if theta in tried_thetas:
+            print("Attempted to retry a theta that was already tried. Exiting.", flush=True)
+            sys.exit()
+        tried_thetas.append(theta)
+
+        PROMISE_args = ['java' , '-Xmx14G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
+        PROMISE_args = list(map(str, PROMISE_args))
+        try:
+            ## save current working directory
+            cwd = os.getcwd()
+            if 'PROMISE' not in cwd:
+                ## switch to ProMiSe directory and execute Java code
+                os.chdir(promise_path)
+
+            if not redirect_output:
+                subprocess.run(PROMISE_args, check=True, timeout=480)
+            else:
+                subprocess.run(PROMISE_args, check=True, \
+                               stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'), timeout=480)
+
+            print("os.path.isfile(sfsp_file): {}".format(os.path.isfile(sfsp_file)))
+            if os.path.isfile(sfsp_file):
+                output = int(subprocess.check_output(["wc", "-l" ,sfsp_file]).split()[0])
+                print("wc -l {}: {}".format(sfsp_file, output), flush=True)
+                if output > 5:
+                    ## Success! Return to hypa working directory and move on.
+                    print("Found {} patterns. Returning to python program.".format(output), flush=True)
+                    os.chdir(pydir)
+                    success = True
+                else:
+                    theta -= 0.01
+                    print("Fewer than 5 SFSP found. Trying theta = {}.".format(theta), flush=True)
+            else:
+                theta -= 0.01
+                print('No SFSP found. Trying theta = {}.'.format(theta), flush=True)
+
+        except Exception as e:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback,
+                                  limit=2, file=sys.stdout)
+
+            if theta == maximum_theta or theta == minimum_theta:
+                print("Timed out at minimum or maximum theta = {}. Exiting.".format(theta), flush=True)
+                sys.exit()
+            else:
+                theta = theta + 0.01
+                print("Timed out. Trying again with theta = {}".format(theta), flush=True)
+
+        if success:
+            ## Leave the while loop
+            break
 
     ## Read output of ProMiSe.jar and convert back to original node names
     reverse_mapping = {str(val):key for key,val in mapping.items()}
     try:
-        sfsp_file = promise_path + 'data/' + output_filename + '_SFSP.txt'
         anom_paths = []
         f_in = open(sfsp_file)
         for line in f_in:
@@ -91,7 +128,7 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
         exc_type, exc_value, exc_traceback = sys.exc_info()
         traceback.print_exception(exc_type, exc_value, exc_traceback,
                               limit=2, file=sys.stdout)
-        anom_paths=[]
+        sys.exit()
 
     return anom_paths
 
