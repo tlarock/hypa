@@ -452,7 +452,7 @@ if __name__=="__main__":
     #hypa_auc(max_k=5, n_samples=10)
     #print("Starting fbad_auc")
     #fbad_auc(max_k=5, n_samples=10)
-    minimum_frequency=0.25
+    minimum_frequency=0.22
     wy_datasets=50
     mc_datasets=4096
     cores=60

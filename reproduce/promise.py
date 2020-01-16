@@ -65,12 +65,12 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
             if 'PROMISE' not in cwd:
                 ## switch to ProMiSe directory and execute Java code
                 os.chdir(promise_path)
-
+            timeout=1800
             if not redirect_output:
-                subprocess.run(PROMISE_args, check=True, timeout=480)
+                subprocess.run(PROMISE_args, check=True, timeout=timeout)
             else:
                 subprocess.run(PROMISE_args, check=True, \
-                               stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'), timeout=480)
+                               stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'), timeout=timeout)
 
             print("os.path.isfile(sfsp_file): {}".format(os.path.isfile(sfsp_file)))
             if os.path.isfile(sfsp_file):
