@@ -32,7 +32,6 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
     Accepts an SPMF formatted string, prints it to the promise/data directory
     at output_filename.txt, runs ProMiSe, reads output, returns significant paths.
     '''
-    
     ## Write SPMF string to a file that ProMiSe.jar can find
     try:
         data_path = promise_path + 'data/' + output_filename + '.txt'
@@ -45,55 +44,95 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
                               limit=2, file=sys.stdout)
         sys.exit()
 
-    ## Set up and execute ProMiSe.jar
-    PROMISE_args = ['java' , '-Xmx550G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
-    PROMISE_args = list(map(str, PROMISE_args))
-    try:
-        ## save current working directory
-        cwd = os.getcwd()
-        ## switch to ProMiSe directory and execute Java code
-        os.chdir(promise_path)
-        if not redirect_output:
-            subprocess.run(PROMISE_args, check=True)
-        else:
-            subprocess.run(PROMISE_args, check=True, \
-                           stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'))
-        
-        ## return to hypa working directory
-        os.chdir(cwd)
-    except Exception as e:
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        traceback.print_exception(exc_type, exc_value, exc_traceback,
-                              limit=2, file=sys.stdout)
-        sys.exit()
+    sfsp_file = 'data/' + output_filename + '_SFSP.txt'
+    pydir = os.getcwd()
+    tries = 10
+    maximum_theta = theta+0.01*tries
+    minimum_theta = theta-0.01*tries
+    tried_thetas=[]
+    success = False
+    while minimum_theta <= theta <= maximum_theta:
+        if theta in tried_thetas:
+            print("Attempted to retry a theta that was already tried. Exiting.", flush=True)
+            sys.exit()
+        tried_thetas.append(theta)
 
-    ## Read output of ProMiSe.jar and convert back to original node names
-    reverse_mapping = {str(val):key for key,val in mapping.items()}
-    try:
-        sfsp_file = promise_path + 'data/' + output_filename + '_SFSP.txt'
-        anom_paths = []
-        f_in = open(sfsp_file)
-        for line in f_in:
-            s = line.split(' ')
-            path = []
-            for entry in s:
-                if entry == '-1':
-                    continue
-                elif entry == '#SUP:':
-                    break
+        PROMISE_args = ['java' , '-Xmx580G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
+        PROMISE_args = list(map(str, PROMISE_args))
+        try:
+            ## save current working directory
+            cwd = os.getcwd()
+            if 'PROMISE' not in cwd:
+                ## switch to ProMiSe directory and execute Java code
+                os.chdir(promise_path)
+
+            if not redirect_output:
+                subprocess.run(PROMISE_args, check=True, timeout=800)
+            else:
+                subprocess.run(PROMISE_args, check=True, \
+                               stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'), timeout=480)
+
+            print("os.path.isfile(sfsp_file): {}".format(os.path.isfile(sfsp_file)))
+            if os.path.isfile(sfsp_file):
+                output = int(subprocess.check_output(["wc", "-l" ,sfsp_file]).split()[0])
+                print("wc -l {}: {}".format(sfsp_file, output), flush=True)
+                if output > 5:
+                    ## Success! Return to hypa working directory and move on.
+                    print("Found {} patterns. Returning to python program.".format(output), flush=True)
+                    success = True
                 else:
-                    path.append(reverse_mapping[entry])
+                    theta -= 0.01
+                    print("Fewer than 5 SFSP found. Trying theta = {}.".format(theta), flush=True)
+            else:
+                theta -= 0.01
+                print('No SFSP found. Trying theta = {}.'.format(theta), flush=True)
 
-            anom_paths.append(path)
-        f_in.close()
-        os.remove(sfsp_file)
-    except Exception as e:
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        traceback.print_exception(exc_type, exc_value, exc_traceback,
-                              limit=2, file=sys.stdout)
-        anom_paths=[]
+        except Exception as e:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback,
+                                  limit=2, file=sys.stdout)
 
-    return anom_paths
+            if theta == maximum_theta or theta == minimum_theta:
+                print("Timed out at minimum or maximum theta = {}. Exiting.".format(theta), flush=True)
+                sys.exit()
+            else:
+                theta = theta + 0.01
+                print("Timed out. Trying again with theta = {}".format(theta), flush=True)
+
+        if success:
+            ## Leave the while loop
+            break
+
+    if not success:
+        return None
+    else:
+        ## Read output of ProMiSe.jar and convert back to original node names
+        reverse_mapping = {str(val):key for key,val in mapping.items()}
+        try:
+            anom_paths = []
+            f_in = open(sfsp_file)
+            for line in f_in:
+                s = line.split(' ')
+                path = []
+                for entry in s:
+                    if entry == '-1':
+                        continue
+                    elif entry == '#SUP:':
+                        break
+                    else:
+                        path.append(reverse_mapping[entry])
+
+                anom_paths.append(path)
+            f_in.close()
+            os.remove(sfsp_file)
+            os.chdir(pydir)
+        except Exception as e:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback,
+                                  limit=2, file=sys.stdout)
+            sys.exit()
+
+        return anom_paths
 
 def compute_promise(networks, paths_data, wy_datasets=50, mc_datasets=1024, \
             minimum_frequency=0.0001, cores=2, strategy=1, promise_path='../../PROMISE/', redirect_output=True, outfile='tmp'):
@@ -108,14 +147,17 @@ def compute_promise(networks, paths_data, wy_datasets=50, mc_datasets=1024, \
                                   cores=cores, promise_path=promise_path, \
                                   redirect_output=redirect_output, output_filename=outfile)
 
-    ## Mark anomalous edges in networks object 
-    for path in anomalous_paths:
-        k = len(path) - 1
-        if k in networks:
-            edge = ','.join(path[0:k]), ','.join(path[1:k+1])
-            networks[k].edges[edge]['promise'] = True
+    if anomalous_paths:
+        ## Mark anomalous edges in networks object 
+        for path in anomalous_paths:
+            k = len(path) - 1
+            if k in networks:
+                edge = ','.join(path[0:k]), ','.join(path[1:k+1])
+                networks[k].edges[edge]['promise'] = True
 
-    return networks
+        return networks
+    else:
+        return None
 
 if __name__ == '__main__':
     import hypa

@@ -404,16 +404,23 @@ def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_
     ## PROMISE, false otherwise
     for kt in range(2, max_k+1):
         print("computing for implanted anomaly length={}...".format(kt), flush=True)
-        for _ in range(n_samples):
-            print("Sample: {}".format(_), flush=True)
-            pnets, _, paths_data = generate_pnets_with_anomaly(kt, maxk=max_k, num_seqs = 500)
-            pnets = compute_promise(pnets, paths_data, wy_datasets, mc_datasets, minimum_frequency, cores, strategy, promise_path, outfile=outfile, redirect_output=redirect_output)
+        sample = 0
+        while sample < n_samples:
+            print("Sample: {}".format(sample), flush=True)
+            pnets, _, paths_data = generate_pnets_with_anomaly(kt, maxk=max_k, num_seqs = 1000)
+            pnets = compute_promise(pnets, paths_data, wy_datasets, mc_datasets, minimum_frequency, cores, strategy, promise_path, \
+                                 outfile=outfile + '-{}-{}'.format(kt, sample), redirect_output=redirect_output)
+            if not pnets:
+                sample -= 1
+                break
+
             auc_kt = compute_roc(pnets, kt, plot=False, method='promise', alpha=1.0)
             for k,val in auc_kt:
                 auroc[kt][k].append(val)
 
-            with open('output/auroc-{}_P-{}_T-{}.pickle'.format(kt, wy_datasets, mc_datasets), 'wb') as f:
+            with open('output/auroc-{}_theta-{}_P-{}_T-{}.pickle'.format(kt, minimum_frequency, wy_datasets, mc_datasets), 'wb') as f:
                 pickle.dump(auroc, f)
+            sample += 1
 
     draw.set_style()
     for kt,d in auroc.items():
@@ -435,7 +442,7 @@ def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_
     plt.ylabel('AUC')
     plt.legend(title='Anomaly length')
     plt.tight_layout()
-    plt.savefig('output/randmod-auroc-promise_P-{}_T-{}.pdf'.format(wy_datasets, mc_datasets))
+    plt.savefig('output/randmod-auroc-promise_theta-{}_P-{}_T-{}.pdf'.format(minimum_frequency, wy_datasets, mc_datasets))
 
 
 if __name__=="__main__":
@@ -446,8 +453,10 @@ if __name__=="__main__":
     #hypa_auc(max_k=5, n_samples=10)
     #print("Starting fbad_auc")
     #fbad_auc(max_k=5, n_samples=10)
-    wy_datasets=50
+    minimum_frequency=0.25
+    wy_datasets=100
     mc_datasets=2048
     #PROMISE_auc(max_k=4, n_samples=5, wy_datasets=25, mc_datasets=150, cores=56, promise_path='/scratch/larock.t/PROMISE/')
-    PROMISE_auc(max_k=5, n_samples=3, wy_datasets=wy_datasets, mc_datasets=mc_datasets, \
-                minimum_frequency=0.12, cores=32, redirect_output=False, promise_path='/scratch/larock.t/PROMISE/', outfile='tmp-{}-{}'.format(wy_datasets, mc_datasets))
+    PROMISE_auc(max_k=5, n_samples=5, wy_datasets=wy_datasets, mc_datasets=mc_datasets, \
+                promise_path='/scratch/larock.t/PROMISE/', minimum_frequency=minimum_frequency, cores=62, redirect_output=False, \
+                outfile='tmp-{}-{}-{}'.format(int(minimum_frequency*100), wy_datasets, mc_datasets))
