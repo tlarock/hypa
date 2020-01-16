@@ -46,7 +46,7 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
 
     sfsp_file = 'data/' + output_filename + '_SFSP.txt'
     pydir = os.getcwd()
-    tries = 10
+    tries = 5
     maximum_theta = theta+0.01*tries
     minimum_theta = theta-0.01*tries
     tried_thetas=[]
@@ -57,7 +57,7 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
             sys.exit()
         tried_thetas.append(theta)
 
-        PROMISE_args = ['java' , '-Xmx580G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
+        PROMISE_args = ['java' , '-Xmx600G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
         PROMISE_args = list(map(str, PROMISE_args))
         try:
             ## save current working directory
@@ -67,7 +67,7 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
                 os.chdir(promise_path)
 
             if not redirect_output:
-                subprocess.run(PROMISE_args, check=True, timeout=800)
+                subprocess.run(PROMISE_args, check=True, timeout=480)
             else:
                 subprocess.run(PROMISE_args, check=True, \
                                stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'), timeout=480)

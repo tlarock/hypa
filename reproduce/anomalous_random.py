@@ -411,8 +411,7 @@ def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_
             pnets = compute_promise(pnets, paths_data, wy_datasets, mc_datasets, minimum_frequency, cores, strategy, promise_path, \
                                  outfile=outfile + '-{}-{}'.format(kt, sample), redirect_output=redirect_output)
             if not pnets:
-                sample -= 1
-                break
+                continue
 
             auc_kt = compute_roc(pnets, kt, plot=False, method='promise', alpha=1.0)
             for k,val in auc_kt:
@@ -454,9 +453,12 @@ if __name__=="__main__":
     #print("Starting fbad_auc")
     #fbad_auc(max_k=5, n_samples=10)
     minimum_frequency=0.25
-    wy_datasets=100
-    mc_datasets=2048
+    wy_datasets=50
+    mc_datasets=4096
+    cores=60
+    promise_path='../../PROMISE/'
+    promise_path='/scratch/larock.t/PROMISE/'
     #PROMISE_auc(max_k=4, n_samples=5, wy_datasets=25, mc_datasets=150, cores=56, promise_path='/scratch/larock.t/PROMISE/')
     PROMISE_auc(max_k=5, n_samples=5, wy_datasets=wy_datasets, mc_datasets=mc_datasets, \
-                promise_path='/scratch/larock.t/PROMISE/', minimum_frequency=minimum_frequency, cores=62, redirect_output=False, \
+                promise_path=promise_path, minimum_frequency=minimum_frequency, cores=cores, redirect_output=False, \
                 outfile='tmp-{}-{}-{}'.format(int(minimum_frequency*100), wy_datasets, mc_datasets))
