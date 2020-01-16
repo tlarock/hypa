@@ -46,64 +46,71 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
 
     sfsp_file = 'data/' + output_filename + '_SFSP.txt'
     pydir = os.getcwd()
-    tries = 5
-    maximum_theta = theta+0.01*tries
-    minimum_theta = theta-0.01*tries
-    tried_thetas=[]
+    #tries = 5
+    #maximum_theta = theta+0.01*tries
+    #minimum_theta = theta-0.01*tries
+    #tried_thetas=[]
     success = False
-    while minimum_theta <= theta <= maximum_theta:
-        if theta in tried_thetas:
-            print("Attempted to retry a theta that was already tried. Exiting.", flush=True)
-            sys.exit()
-        tried_thetas.append(theta)
+    #while minimum_theta <= theta <= maximum_theta:
+    #    if theta in tried_thetas:
+    #        print("Attempted to retry a theta that was already tried. Exiting.", flush=True)
+    #        sys.exit()
+    #    tried_thetas.append(theta)
 
-        PROMISE_args = ['java' , '-Xmx600G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
-        PROMISE_args = list(map(str, PROMISE_args))
+    PROMISE_args = ['java' , '-Xmx14G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
+    PROMISE_args = list(map(str, PROMISE_args))
+    try:
+        ## save current working directory
+        cwd = os.getcwd()
+        if 'PROMISE' not in cwd:
+            ## switch to ProMiSe directory and execute Java code
+            os.chdir(promise_path)
+
+        if not redirect_output:
+            subprocess.run(PROMISE_args, check=True, timeout=480)
+        else:
+            subprocess.run(PROMISE_args, check=True, \
+                           stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'), timeout=480)
+
+        if os.path.isfile(sfsp_file):
+            output = int(subprocess.check_output(["wc", "-l" ,sfsp_file]).split()[0])
+            if output > 0:
+                ## Success! Return to hypa working directory and move on.
+                print("Found {} patterns. Returning to python program.".format(output), flush=True)
+                success = True
+            #else:
+            #    theta -= 0.01
+            #    print("No SFSP found. Trying theta = {}.".format(theta), flush=True)
+        #else:
+            #theta -= 0.01
+            #print('No SFSP found. Trying theta = {}.'.format(theta), flush=True)
+
+    except Exception as e:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback.print_exception(exc_type, exc_value, exc_traceback,
+                              limit=2, file=sys.stdout)
+
+        #if theta == maximum_theta or theta == minimum_theta:
+        #    print("Timed out at minimum or maximum theta = {}. Exiting.".format(theta), flush=True)
+        #    sys.exit()
+        #else:
+            #theta = theta + 0.01
+            #print("Timed out. Trying again with theta = {}".format(theta), flush=True)
+
+    #if success:
+    #    ## Leave the while loop
+    #    break
+
+    ## If an experiment fails, just generate a new dataset
+    if not success:
+        print("No SFSP found. Generating a new dataset...")
         try:
-            ## save current working directory
-            cwd = os.getcwd()
-            if 'PROMISE' not in cwd:
-                ## switch to ProMiSe directory and execute Java code
-                os.chdir(promise_path)
-
-            if not redirect_output:
-                subprocess.run(PROMISE_args, check=True, timeout=480)
-            else:
-                subprocess.run(PROMISE_args, check=True, \
-                               stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'), timeout=480)
-
-            print("os.path.isfile(sfsp_file): {}".format(os.path.isfile(sfsp_file)))
-            if os.path.isfile(sfsp_file):
-                output = int(subprocess.check_output(["wc", "-l" ,sfsp_file]).split()[0])
-                print("wc -l {}: {}".format(sfsp_file, output), flush=True)
-                if output > 5:
-                    ## Success! Return to hypa working directory and move on.
-                    print("Found {} patterns. Returning to python program.".format(output), flush=True)
-                    success = True
-                else:
-                    theta -= 0.01
-                    print("Fewer than 5 SFSP found. Trying theta = {}.".format(theta), flush=True)
-            else:
-                theta -= 0.01
-                print('No SFSP found. Trying theta = {}.'.format(theta), flush=True)
-
+            os.chdir(pydir)
         except Exception as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_exception(exc_type, exc_value, exc_traceback,
-                                  limit=2, file=sys.stdout)
+                              limit=2, file=sys.stdout)
 
-            if theta == maximum_theta or theta == minimum_theta:
-                print("Timed out at minimum or maximum theta = {}. Exiting.".format(theta), flush=True)
-                sys.exit()
-            else:
-                theta = theta + 0.01
-                print("Timed out. Trying again with theta = {}".format(theta), flush=True)
-
-        if success:
-            ## Leave the while loop
-            break
-
-    if not success:
         return None
     else:
         ## Read output of ProMiSe.jar and convert back to original node names

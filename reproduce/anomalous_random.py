@@ -299,7 +299,8 @@ def generate_pnets_with_anomaly(k_tru, num_seqs = 1500, anomaly_abundance = 0.3,
 
     seq_data = []
     for _ in range(num_seqs):
-        ww = pp.algorithms.random_walk.generate_walk(pnetkcorr, l=nnodes1)
+        #ww = pp.algorithms.random_walk.generate_walk(pnetkcorr, l=nnodes1)
+        ww = pp.algorithms.random_walk.generate_walk(pnetkcorr, l=10)
         seq_data.append(honwalk2firstwalk(ww))
 
     paths_data = pp.Paths()
@@ -407,7 +408,7 @@ def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_
         sample = 0
         while sample < n_samples:
             print("Sample: {}".format(sample), flush=True)
-            pnets, _, paths_data = generate_pnets_with_anomaly(kt, maxk=max_k, num_seqs = 1000)
+            pnets, _, paths_data = generate_pnets_with_anomaly(kt, maxk=max_k, num_seqs = 2000)
             pnets = compute_promise(pnets, paths_data, wy_datasets, mc_datasets, minimum_frequency, cores, strategy, promise_path, \
                                  outfile=outfile + '-{}-{}'.format(kt, sample), redirect_output=redirect_output)
             if not pnets:
@@ -452,12 +453,12 @@ if __name__=="__main__":
     #hypa_auc(max_k=5, n_samples=10)
     #print("Starting fbad_auc")
     #fbad_auc(max_k=5, n_samples=10)
-    minimum_frequency=0.25
+    minimum_frequency=0.2
     wy_datasets=50
-    mc_datasets=4096
-    cores=60
+    mc_datasets=2048
+    cores=7
     promise_path='../../PROMISE/'
-    promise_path='/scratch/larock.t/PROMISE/'
+    #promise_path='/scratch/larock.t/PROMISE/'
     #PROMISE_auc(max_k=4, n_samples=5, wy_datasets=25, mc_datasets=150, cores=56, promise_path='/scratch/larock.t/PROMISE/')
     PROMISE_auc(max_k=5, n_samples=5, wy_datasets=wy_datasets, mc_datasets=mc_datasets, \
                 promise_path=promise_path, minimum_frequency=minimum_frequency, cores=cores, redirect_output=False, \
