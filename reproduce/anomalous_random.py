@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from collections import defaultdict
 import matplotlib
-matplotlib.use("Agg")
+#matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import pathpy as pp
@@ -95,7 +95,7 @@ def compute_roc(pnets, truth_k=2, plot=True, output=None, method='hypa', alpha=0
     auc_k = []
 
     for _k in range(1,k+1):
-        if method == 'baseline':
+        if method == 'fbad':
             edge_weights = [d['weight'] for _,d in pnets[_k].edges.items()]
             mean = np.mean(edge_weights)
             std = np.std(edge_weights)
@@ -111,7 +111,7 @@ def compute_roc(pnets, truth_k=2, plot=True, output=None, method='hypa', alpha=0
 
             if method == 'hypa':
                 y_score.append(np.exp(d['pval']))
-            elif method == 'baseline':
+            elif method == 'fbad':
                 if d['weight'] > (mean + std*alpha):
                     y_score.append(1.0)
                 else:
@@ -331,8 +331,7 @@ def hypa_auc(max_k=3, n_samples=5):
     with open('output/randmod-auroc.pickle', 'wb') as f:
         pickle.dump(auroc, f)
 
-    draw.set_style()
-
+    plt.figure()
     for kt,d in auroc.items():
         x = []
         y = []
@@ -349,6 +348,7 @@ def hypa_auc(max_k=3, n_samples=5):
 
     plt.plot((1,max(x)), (0.5,0.5), 'k--')
     plt.ylim((0.,1.05))
+    plt.xticks(list(range(1, max(x)+1)), list(range(1, max(x)+1)))
     plt.xlabel('HYPA order')
     plt.ylabel('AUC')
     plt.legend(title='Anomaly length')
@@ -366,12 +366,12 @@ def fbad_auc(max_k=3, n_samples=5):
         print("computing for implanted anomaly length={}...".format(kt))
         for _ in range(n_samples):
             pnets, _,_ = generate_pnets_with_anomaly(kt, maxk=max_k)
-            auc_kt = compute_roc(pnets, kt, plot=False, baseline=True, alpha=1.0)
+            auc_kt = compute_roc(pnets, kt, plot=False, method='fbad', alpha=1.0)
             for k,val in auc_kt:
                 auroc[kt][k].append(val)
 
 
-    draw.set_style()
+    plt.figure()
     for kt,d in auroc.items():
         x = []
         y = []
@@ -387,6 +387,7 @@ def fbad_auc(max_k=3, n_samples=5):
 
     plt.plot((1,max(x)), (0.5,0.5), 'k--')
     plt.ylim((0.,1.05))
+    plt.xticks(list(range(1, max(x)+1)), list(range(1, max(x)+1)))
     plt.xlabel('Detection order')
     plt.ylabel('AUC')
     plt.legend(title='Anomaly length')
@@ -422,7 +423,6 @@ def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_
                 pickle.dump(auroc, f)
             sample += 1
 
-    draw.set_style()
     for kt,d in auroc.items():
         x = []
         y = []
@@ -448,18 +448,24 @@ def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_
 if __name__=="__main__":
     import draw
     draw.set_style()
+    plt.rcParams['figure.figsize'] =  [6.5, 6]
+    plt.rcParams['axes.labelsize'] = 38
+    plt.rcParams['xtick.labelsize'] = 26
+    plt.rcParams['ytick.labelsize'] = 26
+    plt.rcParams['legend.fontsize'] = 18
 
-    #print("Startin hypa_auc")
-    #hypa_auc(max_k=5, n_samples=10)
-    #print("Starting fbad_auc")
-    #fbad_auc(max_k=5, n_samples=10)
-    minimum_frequency=0.2
-    wy_datasets=50
-    mc_datasets=2048
-    cores=7
-    promise_path='../../PROMISE/'
+    print("Startin hypa_auc")
+    hypa_auc(max_k=5, n_samples=10)
+    plt.clf()
+    print("Starting fbad_auc")
+    fbad_auc(max_k=5, n_samples=10)
+    #minimum_frequency=0.08
+    #wy_datasets=50
+    #mc_datasets=4096
+    #cores=7
+    #promise_path='../../PROMISE/'
     #promise_path='/scratch/larock.t/PROMISE/'
     #PROMISE_auc(max_k=4, n_samples=5, wy_datasets=25, mc_datasets=150, cores=56, promise_path='/scratch/larock.t/PROMISE/')
-    PROMISE_auc(max_k=5, n_samples=5, wy_datasets=wy_datasets, mc_datasets=mc_datasets, \
-                promise_path=promise_path, minimum_frequency=minimum_frequency, cores=cores, redirect_output=False, \
-                outfile='tmp-{}-{}-{}'.format(int(minimum_frequency*100), wy_datasets, mc_datasets))
+    #PROMISE_auc(max_k=5, n_samples=5, wy_datasets=wy_datasets, mc_datasets=mc_datasets, \
+    #            promise_path=promise_path, minimum_frequency=minimum_frequency, cores=cores, redirect_output=False, \
+    #            outfile='tmp-{}-{}-{}'.format(int(minimum_frequency*100), wy_datasets, mc_datasets))
