@@ -69,47 +69,46 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
     return xi, return_network
 
 
+def xifix_row(m, xi, degs):
+    xi_sum = xi.sum()
+
+    # uniformly increase sum(xi) to m^2
+    xi = xi * m**2/xi_sum
+    xi_sum = xi.sum()
+
+    # compute the ratio between observed degrees and
+    # expected degrees (rowwise)
+    exp_degs = np.array((xi/xi_sum*m).sum(axis=1))
+    exp_degs = exp_degs.reshape(max(exp_degs.shape))
+    nonzero_ids = exp_degs != 0
+    nonzero_ids = nonzero_ids.reshape(max(nonzero_ids.shape,))
+    ratio = np.zeros(len(exp_degs))
+    ratio[nonzero_ids] = degs[nonzero_ids]/exp_degs[nonzero_ids]
+    # increment each column of xi by the computed ratio
+    # this results in a xi matrix with the correct number
+    # of balls (m^2 == sum(xi)) and degree preserved
+    # rowwise
+    if not sp.issparse(xi):
+        xi = (xi.transpose() * ratio).transpose()
+    else:
+        xi = (xi.transpose().multiply(ratio)).transpose()
+
+    # return the xi rounded to integers
+    return np.round(xi)
+
+def compute_rmse(indegs, outdegs, xi, xi_sum, m):
+    val = ((xi/xi_sum*m).sum(axis=1) - outdegs)
+    out_sum = np.array((xi/xi_sum*m).sum(axis=1))
+    out_sum = out_sum.reshape(max(out_sum.shape))
+    in_sum = np.array((xi/xi_sum*m).sum(axis=0))
+    in_sum = in_sum.reshape(max(in_sum.shape))
+    rmse = np.sqrt( ( (out_sum - outdegs)**2 ).sum() )/2 + np.sqrt( ( (in_sum - indegs)**2 ).sum())/2
+    return rmse
 
 def fitXi(adj, xi_input, tol=1e-2, sparsexi=False, verbose=False):
     """
     python version of new r code to fix xi
     """
-    def xifix_row(m, xi, degs):
-        xi_sum = xi.sum()
-
-        # uniformly increase sum(xi) to m^2
-        xi = xi * m**2/xi_sum
-        xi_sum = xi.sum()
-
-        # compute the ratio between observed degrees and
-        # expected degrees (rowwise)
-        exp_degs = np.array((xi/xi_sum*m).sum(axis=1))
-        exp_degs = exp_degs.reshape(max(exp_degs.shape))
-        nonzero_ids = exp_degs != 0
-        nonzero_ids = nonzero_ids.reshape(max(nonzero_ids.shape,))
-        ratio = np.zeros(len(exp_degs))
-        ratio[nonzero_ids] = degs[nonzero_ids]/exp_degs[nonzero_ids]
-        # increment each column of xi by the computed ratio
-        # this results in a xi matrix with the correct number
-        # of balls (m^2 == sum(xi)) and degree preserved
-        # rowwise
-        if not sp.issparse(xi):
-            xi = (xi.T * ratio).T
-        else:
-            xi = (xi.T.multiply(ratio)).T
-
-        # return the xi rounded to integers
-        return np.round(xi)
-
-    def compute_rmse(indegs, outdegs, xi, xi_sum, m):
-        val = ((xi/xi_sum*m).sum(axis=1) - outdegs)
-        out_sum = np.array((xi/xi_sum*m).sum(axis=1))
-        out_sum = out_sum.reshape(max(out_sum.shape))
-        in_sum = np.array((xi/xi_sum*m).sum(axis=0))
-        in_sum = in_sum.reshape(max(in_sum.shape))
-        rmse = np.sqrt( ( (out_sum - outdegs)**2 ).sum() )/2 + np.sqrt( ( (in_sum - indegs)**2 ).sum())/2
-        return rmse
-
     ## pass adjacency and non-corrected xi. if verbose=T,
     ## print root mean squared error (rmse)
 
@@ -138,7 +137,7 @@ def fitXi(adj, xi_input, tol=1e-2, sparsexi=False, verbose=False):
         # fix row degrees
         xi = xifix_row(m = m, xi = xi, degs = outdegs)
         # fix column degrees applying xifit_row to transposed xi
-        xi = ( xifix_row(m = m, xi = xi.T, degs = indegs) ).T
+        xi = ( xifix_row(m = m, xi = xi.transpose(), degs = indegs) ).transpose()
 
         # compute rmse
         xi_sum = xi.sum()
