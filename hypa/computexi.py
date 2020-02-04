@@ -2,6 +2,59 @@ import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
 
+
+def xi_matrix(network, weighted=True, transposed=False):
+    """Returns a sparse xi matrix of the higher-order network. Unless transposed
+    is set to true, the entry corresponding to a directed link s->t is stored in row s and
+    column t and can be accessed via A[s,t].
+
+    Parameters
+    ----------
+    weighted: bool
+	if set to False, the function returns a binary adjacency matrix.
+	If set to True, adjacency matrix entries contain edge weights.
+    transposed: bool
+	whether to transpose the matrix or not.
+
+    Returns
+    -------
+    numpy cooc matrix
+    """
+    row = []
+    col = []
+    data = []
+
+    edgeC = network.ecount()
+    if not network.directed:
+        n_self_loops = sum(s == t for (s, t) in network.edges)
+        edgeC *= 2
+        edgeC -= n_self_loops
+
+    node_to_coord = network.node_to_name_map()
+
+    for (s, t), e in network.edges.items():
+        row.append(node_to_coord[s])
+        col.append(node_to_coord[t])
+        if weighted:
+            data.append(e['xival'])
+        else:
+            data.append(1)
+
+        if not network.directed and t != s:
+            row.append(node_to_coord[t])
+            col.append(node_to_coord[s])
+            if weighted:
+                data.append(e['xival'])
+            else:
+                data.append(1)
+
+    shape = (network.ncount(), network.ncount())
+    A = sp.coo_matrix((data, (row, col)), shape=shape).tocsr()
+
+    if transposed:
+        return A.transpose()
+    return A
+
 def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
     r"""
     Compute the Xi matrix for higher order networks.
@@ -24,9 +77,6 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
     network = pp.Network(directed=True)
 
     higher_order = pp.HigherOrderNetwork(paths, k, separator=separator)
-    ## The network to return, which has the true observation frequencies as weights
-    ## this way we know that the Xi and adjacency matrices should have the same non-zero entries
-    return_network = pp.Network(directed=True)
 
     ## generate all possible paths from the first order network
     first_order = pp.HigherOrderNetwork(paths, k=1, separator=separator)
@@ -45,16 +95,15 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
             if xi_val == 0:
                 continue
 
+            ## add the total observations of this path to the return network
+            observations = paths.paths[k][path].sum()
             if constant_xi:
-                network.add_edge(source, target)
+                network.add_edge(source, target, weight=observations)
                 edges_sofar += 1
                 xi_const += (xi_val - xi_const) / edges_sofar
             else:
-                network.add_edge(source, target, weight=xi_val)
+                network.add_edge(source, target, weight=observations, xival=xi_val)
 
-            ## add the total observations of this path to the return network
-            observations = paths.paths[k][path].sum()
-            return_network.add_edge(source, target, weight=float(observations))
 
     if constant_xi:
         xi_const = np.round(xi_const)
@@ -62,54 +111,53 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
             network.edges[e]['weight'] = xi_const
 
     if sparsexi:
-        xi = network.adjacency_matrix(weighted=True).tocoo()
+        xi = xi_matrix(network, weighted=True).tocoo()
     else:
-        xi = network.adjacency_matrix(weighted=True).toarray()
+        xi = xi_matrix(network, weighted=True).toarray()
 
-    return xi, return_network
+    return xi, network
 
 
+def xifix_row(m, xi, degs):
+    xi_sum = xi.sum()
+
+    # uniformly increase sum(xi) to m^2
+    xi = xi * m**2/xi_sum
+    xi_sum = xi.sum()
+
+    # compute the ratio between observed degrees and
+    # expected degrees (rowwise)
+    exp_degs = np.array((xi/xi_sum*m).sum(axis=1))
+    exp_degs = exp_degs.reshape(max(exp_degs.shape))
+    nonzero_ids = exp_degs != 0
+    nonzero_ids = nonzero_ids.reshape(max(nonzero_ids.shape,))
+    ratio = np.zeros(len(exp_degs))
+    ratio[nonzero_ids] = degs[nonzero_ids]/exp_degs[nonzero_ids]
+    # increment each column of xi by the computed ratio
+    # this results in a xi matrix with the correct number
+    # of balls (m^2 == sum(xi)) and degree preserved
+    # rowwise
+    if not sp.issparse(xi):
+        xi = (xi.transpose() * ratio).transpose()
+    else:
+        xi = (xi.transpose().multiply(ratio)).transpose()
+
+    # return the xi rounded to integers
+    return np.round(xi)
+
+def compute_rmse(indegs, outdegs, xi, xi_sum, m):
+    val = ((xi/xi_sum*m).sum(axis=1) - outdegs)
+    out_sum = np.array((xi/xi_sum*m).sum(axis=1))
+    out_sum = out_sum.reshape(max(out_sum.shape))
+    in_sum = np.array((xi/xi_sum*m).sum(axis=0))
+    in_sum = in_sum.reshape(max(in_sum.shape))
+    rmse = np.sqrt( ( (out_sum - outdegs)**2 ).sum() )/2 + np.sqrt( ( (in_sum - indegs)**2 ).sum())/2
+    return rmse
 
 def fitXi(adj, xi_input, tol=1e-2, sparsexi=False, verbose=False):
     """
     python version of new r code to fix xi
     """
-    def xifix_row(m, xi, degs):
-        xi_sum = xi.sum()
-
-        # uniformly increase sum(xi) to m^2
-        xi = xi * m**2/xi_sum
-        xi_sum = xi.sum()
-
-        # compute the ratio between observed degrees and
-        # expected degrees (rowwise)
-        exp_degs = np.array((xi/xi_sum*m).sum(axis=1))
-        exp_degs = exp_degs.reshape(max(exp_degs.shape))
-        nonzero_ids = exp_degs != 0
-        nonzero_ids = nonzero_ids.reshape(max(nonzero_ids.shape,))
-        ratio = np.zeros(len(exp_degs))
-        ratio[nonzero_ids] = degs[nonzero_ids]/exp_degs[nonzero_ids]
-        # increment each column of xi by the computed ratio
-        # this results in a xi matrix with the correct number
-        # of balls (m^2 == sum(xi)) and degree preserved
-        # rowwise
-        if not sp.issparse(xi):
-            xi = (xi.T * ratio).T
-        else:
-            xi = (xi.T.multiply(ratio)).T
-
-        # return the xi rounded to integers
-        return np.round(xi)
-
-    def compute_rmse(indegs, outdegs, xi, xi_sum, m):
-        val = ((xi/xi_sum*m).sum(axis=1) - outdegs)
-        out_sum = np.array((xi/xi_sum*m).sum(axis=1))
-        out_sum = out_sum.reshape(max(out_sum.shape))
-        in_sum = np.array((xi/xi_sum*m).sum(axis=0))
-        in_sum = in_sum.reshape(max(in_sum.shape))
-        rmse = np.sqrt( ( (out_sum - outdegs)**2 ).sum() )/2 + np.sqrt( ( (in_sum - indegs)**2 ).sum())/2
-        return rmse
-
     ## pass adjacency and non-corrected xi. if verbose=T,
     ## print root mean squared error (rmse)
 
@@ -138,7 +186,7 @@ def fitXi(adj, xi_input, tol=1e-2, sparsexi=False, verbose=False):
         # fix row degrees
         xi = xifix_row(m = m, xi = xi, degs = outdegs)
         # fix column degrees applying xifit_row to transposed xi
-        xi = ( xifix_row(m = m, xi = xi.T, degs = indegs) ).T
+        xi = ( xifix_row(m = m, xi = xi.transpose(), degs = indegs) ).transpose()
 
         # compute rmse
         xi_sum = xi.sum()
