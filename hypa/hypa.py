@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
+#import multiprocessing as mp
+from joblib import Parallel, delayed
 
 ## import ghypernet from R
 import rpy2.robjects as ro
@@ -10,6 +12,7 @@ from rpy2.robjects.packages import importr
 ## import my code to work with ghypernet
 from .ghype import ghype
 from .computexi import computeXiHigherOrder, fitXi
+
 
 class Hypa:
     '''
@@ -133,6 +136,22 @@ class Hypa:
 
 
         """
+        def add_edge(u, v, xival, xisum, adjsum, reverse_name_dict):
+            #import rpy2.robjects as ro
+            #import rpy2.robjects.numpy2ri
+            #from rpy2.robjects.packages import importr
+            source, target = reverse_name_dict[u],reverse_name_dict[v]
+            pval = self.compute_hypa(self.adjacency[u,v], xival, xisum, adjsum, log_p=True)
+            if xival > 0:
+                try:
+                    ## What if I return (source, target, attr) and create the dictionary after?
+                    self.hypa_net.edges[(source, target)]['pval'] = pval
+                except Exception as e:
+                    attr = {'weight': 0.0, 'pval':pval, 'xi':xival}
+                    self.hypa_net.add_edge(source, target, **attr)
+            return 1
+
+
         ## assign k
         self.k = k
 
@@ -151,26 +170,21 @@ class Hypa:
             xicoo = sp.coo_matrix(self.adjacency)
 
         reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
-
-        ## construct the network of underrepresented pathways
         adjsum = self.adjacency.sum()
-        for u,v,xival in zip(xicoo.row, xicoo.col, xicoo.data):
-            source, target = reverse_name_dict[u],reverse_name_dict[v]
-            pval = self.compute_hypa(self.adjacency[u,v], xival, xisum, adjsum, log_p=True)
-            if xival == 0:
-                continue
-
-            try:
-                self.hypa_net.edges[(source, target)]['pval'] = pval
-                self.hypa_net.edges[(source, target)]['xi'] = xival
-            except Exception as e:
-                attr = {'weight': 0.0, 'pval':pval, 'xi':xival}
-                self.hypa_net.add_edge(source, target, **attr)
-
+        parallel = False
+        if not parallel:
+            for u,v,xival in zip(xicoo.row, xicoo.col, xicoo.data):
+                source, target = reverse_name_dict[u],reverse_name_dict[v]
+                add_edge(u, v, xival, xisum, adjsum, reverse_name_dict)
+        else:
+            Parallel(n_jobs=2, require='sharedmem')(delayed(add_edge)(u, v, xival, xisum, adjsum, reverse_name_dict) for (u,v,xival) in zip(xicoo.row, xicoo.col, xicoo.data))
 
     def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
         """
         Compute hypa score using ghypernet in R.
+        If r2py fails:
+            from scipy.stats import hypergeom
+            return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
         """
         return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
 
