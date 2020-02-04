@@ -1,8 +1,6 @@
 import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
-#import multiprocessing as mp
-from joblib import Parallel, delayed
 
 ## import ghypernet from R
 import rpy2.robjects as ro
@@ -171,13 +169,9 @@ class Hypa:
 
         reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
         adjsum = self.adjacency.sum()
-        parallel = False
-        if not parallel:
-            for u,v,xival in zip(xicoo.row, xicoo.col, xicoo.data):
-                source, target = reverse_name_dict[u],reverse_name_dict[v]
-                add_edge(u, v, xival, xisum, adjsum, reverse_name_dict)
-        else:
-            Parallel(n_jobs=2, require='sharedmem')(delayed(add_edge)(u, v, xival, xisum, adjsum, reverse_name_dict) for (u,v,xival) in zip(xicoo.row, xicoo.col, xicoo.data))
+        for u,v,xival in zip(xicoo.row, xicoo.col, xicoo.data):
+            source, target = reverse_name_dict[u],reverse_name_dict[v]
+            add_edge(u, v, xival, xisum, adjsum, reverse_name_dict)
 
     def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
         """
