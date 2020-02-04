@@ -57,7 +57,7 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
             sys.exit()
         tried_thetas.append(theta)
 
-        PROMISE_args = ['java' , '-Xmx600G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
+        PROMISE_args = ['java' , '-Xmx580G', '-jar', 'ProMiSe.jar', output_filename, p, t, theta, cores, strategy]
         PROMISE_args = list(map(str, PROMISE_args))
         try:
             ## save current working directory
@@ -65,24 +65,22 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
             if 'PROMISE' not in cwd:
                 ## switch to ProMiSe directory and execute Java code
                 os.chdir(promise_path)
-            timeout=1800
+
             if not redirect_output:
-                subprocess.run(PROMISE_args, check=True, timeout=timeout)
+                subprocess.run(PROMISE_args, check=True, timeout=10000)
             else:
                 subprocess.run(PROMISE_args, check=True, \
-                               stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'), timeout=timeout)
+                               stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'), timeout=10000)
 
-            print("os.path.isfile(sfsp_file): {}".format(os.path.isfile(sfsp_file)))
             if os.path.isfile(sfsp_file):
                 output = int(subprocess.check_output(["wc", "-l" ,sfsp_file]).split()[0])
-                print("wc -l {}: {}".format(sfsp_file, output), flush=True)
-                if output > 5:
+                if output > 0:
                     ## Success! Return to hypa working directory and move on.
                     print("Found {} patterns. Returning to python program.".format(output), flush=True)
                     success = True
                 else:
                     theta -= 0.01
-                    print("Fewer than 5 SFSP found. Trying theta = {}.".format(theta), flush=True)
+                    print("No SFSP found. Trying theta = {}.".format(theta), flush=True)
             else:
                 theta -= 0.01
                 print('No SFSP found. Trying theta = {}.'.format(theta), flush=True)
@@ -103,7 +101,16 @@ def run_promise(converted_paths_str, mapping, output_filename='tmp', p=50, t=500
             ## Leave the while loop
             break
 
+    ## If an experiment fails, just generate a new dataset
     if not success:
+        print("No SFSP found. Generating a new dataset...")
+        try:
+            os.chdir(pydir)
+        except Exception as e:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback,
+                              limit=2, file=sys.stdout)
+
         return None
     else:
         ## Read output of ProMiSe.jar and convert back to original node names
