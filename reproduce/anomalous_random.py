@@ -88,8 +88,8 @@ def compute_roc(pnets, truth_k=2, plot=True, output=None, method='hypa', alpha=0
     """
     Compute Reciever Operating Characteristic for a given network
     """
-    assert method in ['hypa', 'fbad', 'promise'], \
-            "method must be one of hypa, fbad, or promise; not {}".format(method)
+    assert method in ['hypa', 'fbad'], \
+            "method must be one of hypa or fbad not {}".format(method)
 
     k = max(list(pnets.keys()))
     auc_k = []
@@ -113,11 +113,6 @@ def compute_roc(pnets, truth_k=2, plot=True, output=None, method='hypa', alpha=0
                 y_score.append(np.exp(d['pval']))
             elif method == 'fbad':
                 if d['weight'] > (mean + std*alpha):
-                    y_score.append(1.0)
-                else:
-                    y_score.append(0.0)
-            elif method == 'promise':
-                if 'promise' in d.keys():
                     y_score.append(1.0)
                 else:
                     y_score.append(0.0)
@@ -161,7 +156,7 @@ def issubpath(subpath, fullpath):
 
 
 def honseq2prevseq(honvseq, sep=','):
-    """ 
+    """
     """
     prevseq = list(highV2lowE(honvseq[0]))
     for hv in honvseq[1:]:
@@ -395,57 +390,6 @@ def fbad_auc(max_k=3, n_samples=5):
     plt.savefig('output/randmod-auroc-baseline.pdf')
 
 
-def PROMISE_auc(max_k=3, n_samples=5, wy_datasets=50, mc_datasets=1024, minimum_frequency=0.0001, cores=1, strategy=1, promise_path='../../PROMISE/',redirect_output=True, outfile='tmp'):
-    '''
-    Compute AUC for PROMISE baseline.
-    '''
-    from promise import compute_promise
-    auroc = {kt:{k:[] for k in range(1,max_k+1)} for kt in range(2,max_k+1)}
-
-    ## I need to make d['promise'] be True if edge is anomalous according to
-    ## PROMISE, false otherwise
-    for kt in range(3, max_k+1):
-        print("computing for implanted anomaly length={}...".format(kt), flush=True)
-        sample = 0
-        while sample < n_samples:
-            print("Sample: {}".format(sample), flush=True)
-            pnets, _, paths_data = generate_pnets_with_anomaly(kt, maxk=max_k, num_seqs = 2000)
-            pnets = compute_promise(pnets, paths_data, wy_datasets, mc_datasets, minimum_frequency, cores, strategy, promise_path, \
-                                 outfile=outfile + '-{}-{}'.format(kt, sample), redirect_output=redirect_output)
-            
-            if not pnets:
-                continue
-
-            auc_kt = compute_roc(pnets, kt, plot=False, method='promise', alpha=1.0)
-            for k,val in auc_kt:
-                auroc[kt][k].append(val)
-
-            with open('output/auroc-{}_theta-{}_P-{}_T-{}.pickle'.format(kt, minimum_frequency, wy_datasets, mc_datasets), 'wb') as f:
-                pickle.dump(auroc, f)
-            sample += 1
-
-    for kt,d in auroc.items():
-        x = []
-        y = []
-        y_err = []
-        for _x, vals in d.items():
-            x.append(_x)
-            y.append(np.nanmean(vals))
-            y_err.append(np.nanstd(vals))
-
-        y, y_err = np.array(y), np.array(y_err)
-        plt.fill_between(x, y+y_err, y-y_err, alpha=0.25)
-        plt.plot(x, y, 'o-', label='$l={}$'.format(kt))
-
-    plt.plot((1,max(x)), (0.5,0.5), 'k--')
-    plt.ylim((0.,1.05))
-    plt.xlabel('Detection order')
-    plt.ylabel('AUC')
-    plt.legend(title='Anomaly length')
-    plt.tight_layout()
-    plt.savefig('output/randmod-auroc-promise_theta-{}_P-{}_T-{}.pdf'.format(minimum_frequency, wy_datasets, mc_datasets))
-
-
 if __name__=="__main__":
     import draw
     draw.set_style()
@@ -460,13 +404,3 @@ if __name__=="__main__":
     plt.clf()
     print("Starting fbad_auc")
     fbad_auc(max_k=5, n_samples=10)
-    #minimum_frequency=0.08
-    #wy_datasets=50
-    #mc_datasets=4096
-    #cores=7
-    #promise_path='../../PROMISE/'
-    #promise_path='/scratch/larock.t/PROMISE/'
-    #PROMISE_auc(max_k=4, n_samples=5, wy_datasets=25, mc_datasets=150, cores=56, promise_path='/scratch/larock.t/PROMISE/')
-    #PROMISE_auc(max_k=5, n_samples=5, wy_datasets=wy_datasets, mc_datasets=mc_datasets, \
-    #            promise_path=promise_path, minimum_frequency=minimum_frequency, cores=cores, redirect_output=False, \
-    #            outfile='tmp-{}-{}-{}'.format(int(minimum_frequency*100), wy_datasets, mc_datasets))
