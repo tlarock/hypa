@@ -16,10 +16,13 @@ from .computexi import computeXiHigherOrder, fitXi
 class Hypa(HigherOrderNetwork):
     '''
     Class for computing hypa scores on a DeBruijn graph given pathway data.
+
+    Inherits basic network  functionality from pathpy.HigherOrderNetwork,
+    which in turn inherits from pathpy.Network.
     '''
     def __init__(self, paths, k=2, ghype_r=None):
         """
-        Initialize class with pathpy.paths object.
+        Initialize class by constructing HON using super().
 
         parameters
         -----------
@@ -28,7 +31,6 @@ class Hypa(HigherOrderNetwork):
             Paths object containing the pathway data.
         """
         super().__init__(paths, k=k)
-        print(type(self.paths))
         self.initialize_R(ghype_r)
 
 
@@ -68,8 +70,8 @@ class Hypa(HigherOrderNetwork):
 
         ## TODO assuming sparse matrix here
         ## Compute Xi. Also returns a network object.
-        self.Xi, self.hypa_net = computeXiHigherOrder(self, k=self.order, sparsexi=sparsexi, constant_xi=False)
-        self.adjacency = self.hypa_net.adjacency_matrix()
+        self.Xi = computeXiHigherOrder(self, k=self.order, sparsexi=sparsexi, constant_xi=False)
+        self.adjacency = self.adjacency_matrix()
 
         if redistribute:
             if verbose:
@@ -81,7 +83,7 @@ class Hypa(HigherOrderNetwork):
         if constant_xi:
             self.Xi_cnst, _ = computeXiHigherOrder(self, k=self.order, sparsexi=sparsexi, constant_xi=constant_xi)
 
-        self.adjacency = self.hypa_net.adjacency_matrix()
+        self.adjacency = self.adjacency_matrix()
 
 
     def initialize_ghyper(self, constant_xi=False):
@@ -143,10 +145,10 @@ class Hypa(HigherOrderNetwork):
             if xival > 0:
                 try:
                     ## What if I return (source, target, attr) and create the dictionary after?
-                    self.hypa_net.edges[(source, target)]['pval'] = pval
+                    self.edges[(source, target)]['pval'] = pval
                 except Exception as e:
                     attr = {'weight': 0.0, 'pval':pval, 'xi':xival}
-                    self.hypa_net.add_edge(source, target, **attr)
+                    self.add_edge(source, target, **attr)
             return 1
 
 
@@ -164,7 +166,7 @@ class Hypa(HigherOrderNetwork):
         else:
             xicoo = sp.coo_matrix(self.adjacency)
 
-        reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
+        reverse_name_dict = {val:key for key,val in self.node_to_name_map().items()}
         adjsum = self.adjacency.sum()
         for u,v,xival in zip(xicoo.row, xicoo.col, xicoo.data):
             source, target = reverse_name_dict[u],reverse_name_dict[v]

@@ -69,6 +69,8 @@ def computeXiHigherOrder(higher_order, k = 2, sparsexi=False, constant_xi=False)
     constant_xi: logical
         If True, use a constant xi matrix (null model). Default False. TODO: Better explanation
 
+
+    Side effect: Unobserved but possible edges will be added with weight 0.
     """
     paths = higher_order.paths
     separator = paths.separator
@@ -85,31 +87,33 @@ def computeXiHigherOrder(higher_order, k = 2, sparsexi=False, constant_xi=False)
         source, target = higher_order.path_to_higher_order_nodes(path)
 
         ## xi computation
-        xi_val = higher_order.nodes[source]['outweight'].sum() * higher_order.nodes[target]['inweight'].sum()
+        xi_val = higher_order.nodes[source]['outweight'][1] * higher_order.nodes[target]['inweight'][1]
         if xi_val == 0:
             continue
 
         ## add the total observations of this path to the return network
         observations = paths.paths[k][path].sum()
+        if 'weight' not in higher_order.edges[(source,target)]:
+            higher_order.edges[(source,target)]['weight'] = np.array([0., 0.])
+
         if constant_xi:
-            higher_order.add_edge(source, target, weight=observations)
             edges_sofar += 1
             xi_const += (xi_val - xi_const) / edges_sofar
         else:
-            higher_order.add_edge(source, target,  weight=observations, xival=xi_val)
+            higher_order.add_edge(source, target, xival=xi_val)
 
 
     if constant_xi:
         xi_const = np.round(xi_const)
         for e in higher_order.edges:
-            higher_order.edges[e]['weight'] = xi_const
+            higher_order.edges[e]['xival'] = xi_const
 
     if sparsexi:
         xi = xi_matrix(higher_order, weighted=True).tocoo()
     else:
         xi = xi_matrix(higher_order, weighted=True).toarray()
 
-    return xi, higher_order 
+    return xi
 
 
 def xifix_row(m, xi, degs):
