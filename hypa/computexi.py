@@ -87,7 +87,7 @@ def computeXiHigherOrder(higher_order, k = 2, sparsexi=False, constant_xi=False)
         source, target = higher_order.path_to_higher_order_nodes(path)
 
         ## xi computation
-        xi_val = higher_order.nodes[source]['outweight'][1] * higher_order.nodes[target]['inweight'][1]
+        xi_val = higher_order.nodes[source]['outweight'].sum() * higher_order.nodes[target]['inweight'].sum()
         if xi_val == 0:
             continue
 
