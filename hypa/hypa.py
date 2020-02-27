@@ -1,3 +1,4 @@
+from pathpy.classes import HigherOrderNetwork
 import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
@@ -12,11 +13,11 @@ from .ghype import ghype
 from .computexi import computeXiHigherOrder, fitXi
 
 
-class Hypa:
+class Hypa(HigherOrderNetwork):
     '''
     Class for computing hypa scores on a DeBruijn graph given pathway data.
     '''
-    def __init__(self, paths, ghype_r=None):
+    def __init__(self, paths, k=2, ghype_r=None):
         """
         Initialize class with pathpy.paths object.
 
@@ -26,9 +27,10 @@ class Hypa:
         paths: Paths
             Paths object containing the pathway data.
         """
-
-        self.paths = paths
+        super().__init__(paths, k=k)
+        print(type(self.paths))
         self.initialize_R(ghype_r)
+
 
     def initialize_R(self, ghype_r):
         '''Initialize rpy2 functions'''
@@ -40,7 +42,7 @@ class Hypa:
         self.ghype_r = ghype_r
         self.ghype_r_cnst = None
 
-    def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
+    def initialize_xi(self, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
         r"""
         Initialize the xi matrix for the paths object.
 
@@ -62,13 +64,11 @@ class Hypa:
 
         """
         if verbose:
-            print('Computing the k={} order Xi...'.format(k))
+            print('Computing the k={} order Xi...'.format(self.order))
 
-        ## Assign k
-        self.k = k
         ## TODO assuming sparse matrix here
         ## Compute Xi. Also returns a network object.
-        self.Xi, self.hypa_net = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=False)
+        self.Xi, self.hypa_net = computeXiHigherOrder(self, k=self.order, sparsexi=sparsexi, constant_xi=False)
         self.adjacency = self.hypa_net.adjacency_matrix()
 
         if redistribute:
@@ -79,7 +79,7 @@ class Hypa:
             self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xifittol, verbose=verbose)
 
         if constant_xi:
-            self.Xi_cnst, _ = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=constant_xi)
+            self.Xi_cnst, _ = computeXiHigherOrder(self, k=self.order, sparsexi=sparsexi, constant_xi=constant_xi)
 
         self.adjacency = self.hypa_net.adjacency_matrix()
 
@@ -104,7 +104,7 @@ class Hypa:
             self.ghype_r_cnst = self.ghypernet.ghype(adj, directed=True, selfloops=False, xi=self.Xi_cnst.toarray(), omega=omega)
 
 
-    def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, baseline=False, constant_xi=False, verbose=True):
+    def construct_hypa_network(self, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, baseline=False, constant_xi=False, verbose=True):
         """
         Function to compute the significant pathways from a Paths object.
 
@@ -150,12 +150,9 @@ class Hypa:
             return 1
 
 
-        ## assign k
-        self.k = k
-
         ## create network and Xi matrix
         if not baseline:
-            self.initialize_xi(k=self.k, sparsexi=sparsexi, redistribute=redistribute, xifittol=xifittol, constant_xi=constant_xi, verbose=verbose)
+            self.initialize_xi(sparsexi=sparsexi, redistribute=redistribute, xifittol=xifittol, constant_xi=constant_xi, verbose=verbose)
 
             if not constant_xi:
                 xi = self.Xi

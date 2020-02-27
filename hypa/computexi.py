@@ -31,7 +31,6 @@ def xi_matrix(network, weighted=True, transposed=False):
         edgeC -= n_self_loops
 
     node_to_coord = network.node_to_name_map()
-
     for (s, t), e in network.edges.items():
         row.append(node_to_coord[s])
         col.append(node_to_coord[t])
@@ -55,7 +54,7 @@ def xi_matrix(network, weighted=True, transposed=False):
         return A.transpose()
     return A
 
-def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
+def computeXiHigherOrder(higher_order, k = 2, sparsexi=False, constant_xi=False):
     r"""
     Compute the Xi matrix for higher order networks.
 
@@ -71,12 +70,8 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
         If True, use a constant xi matrix (null model). Default False. TODO: Better explanation
 
     """
+    paths = higher_order.paths
     separator = paths.separator
-
-    ## the weighted xi network (could just be a matrix, not totally necessary to have a network)
-    network = pp.Network(directed=True)
-
-    higher_order = pp.HigherOrderNetwork(paths, k, separator=separator)
 
     ## generate all possible paths from the first order network
     first_order = pp.HigherOrderNetwork(paths, k=1, separator=separator)
@@ -89,33 +84,32 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
     for path in possible_paths:
         source, target = higher_order.path_to_higher_order_nodes(path)
 
-        if (source,target) not in network.edges:
-            ## xi computation
-            xi_val = higher_order.nodes[source]['outweight'].sum() * higher_order.nodes[target]['inweight'].sum()
-            if xi_val == 0:
-                continue
+        ## xi computation
+        xi_val = higher_order.nodes[source]['outweight'].sum() * higher_order.nodes[target]['inweight'].sum()
+        if xi_val == 0:
+            continue
 
-            ## add the total observations of this path to the return network
-            observations = paths.paths[k][path].sum()
-            if constant_xi:
-                network.add_edge(source, target, weight=observations)
-                edges_sofar += 1
-                xi_const += (xi_val - xi_const) / edges_sofar
-            else:
-                network.add_edge(source, target, weight=observations, xival=xi_val)
+        ## add the total observations of this path to the return network
+        observations = paths.paths[k][path].sum()
+        if constant_xi:
+            higher_order.add_edge(source, target, weight=observations)
+            edges_sofar += 1
+            xi_const += (xi_val - xi_const) / edges_sofar
+        else:
+            higher_order.add_edge(source, target,  weight=observations, xival=xi_val)
 
 
     if constant_xi:
         xi_const = np.round(xi_const)
-        for e in network.edges:
-            network.edges[e]['weight'] = xi_const
+        for e in higher_order.edges:
+            higher_order.edges[e]['weight'] = xi_const
 
     if sparsexi:
-        xi = xi_matrix(network, weighted=True).tocoo()
+        xi = xi_matrix(higher_order, weighted=True).tocoo()
     else:
-        xi = xi_matrix(network, weighted=True).toarray()
+        xi = xi_matrix(higher_order, weighted=True).toarray()
 
-    return xi, network
+    return xi, higher_order 
 
 
 def xifix_row(m, xi, degs):
