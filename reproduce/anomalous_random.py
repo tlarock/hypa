@@ -6,6 +6,7 @@ import matplotlib
 #matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+import pickle
 import pathpy as pp
 from pathpy.algorithms.random_walk import generate_walk
 
@@ -15,23 +16,27 @@ from sklearn import metrics
 
 def create_truth(pnet, abundance=0.3, concentrate_all = True):
     truth_over = []
+    ## For every edge
     for e, nei in pnet.successors.items():
+        ## Decide if it should be marked anomalous
         if len(nei) < 2 or random.random()<abundance:
             continue
 
-        neiwei = [(t,pnet.edges[(e,t)]['weight']) for t in nei]
-        neiwei = sorted(neiwei, key=lambda r: r[1])#.sum())
+        neighbor_weights = [(t,pnet.edges[(e,t)]['weight']) for t in nei]
+        neighbor_weights = sorted(neighbor_weights, key=lambda r: r[1].sum())
 
         # leave only one with all the weights
         if concentrate_all:
-            tokeep = neiwei[-1]
-            allwei = 0
-            for t,w in neiwei[:-1]:
-                allwei += w
-                pnet.edges[(e,t)]['weight'] = 0
-                ## to mark these under is probably useless, they were random anyway
-                # pnet.edges[(e,t)]['truth'] = 'under'
-            pnet.edges[(e,tokeep[0])]['weight'] += allwei
+            tokeep = neighbor_weights[-1]
+            total_weight = 0
+            ## for all of the neighbors except tokeep
+            for t,w in neighbor_weights[:-1]:
+                total_weight += w
+                ## Set the weight to 0
+                pnet.edges[(e,t)]['weight'] = np.array([0.0, 0.0])
+
+            ## Set weight of tokeep edge to total weight
+            pnet.edges[(e,tokeep[0])]['weight'] += total_weight
             pnet.edges[(e,tokeep[0])]['truth'] = 'over'
 
             truth_over.append(honwalk2firstwalk( (e,tokeep[0]) ))
@@ -40,30 +45,17 @@ def create_truth(pnet, abundance=0.3, concentrate_all = True):
             # make the max under-rep by giving all its weight to another
             # then set its weight to 0 and mark "under"
             # mark the other "over"
-            tound = neiwei[-1]
-            pnet.edges[(e,tound[0])]['weight'] = 0.#np.array([0.,0.])
-            pnet.edges[(e,tound[0])]['truth'] = 'under'
+            to_under = neighbor_weights[-1]
+            pnet.edges[(e,to_under[0])]['weight'] = np.array([0.,0.])
+            pnet.edges[(e,to_under[0])]['truth'] = 'under'
 
-            toov = neiwei[-2]
-            pnet.edges[(e,toov[0])]['weight'] += tound[1]
-            pnet.edges[(e,toov[0])]['truth'] = 'over'
+            to_over = neighbor_weights[-2]
+            pnet.edges[(e,to_over[0])]['weight'] += to_under[1]
+            pnet.edges[(e,to_over[0])]['truth'] = 'over'
 
-            truth_over.append(honwalk2firstwalk( (e,toov[0]) ))
+            truth_over.append(honwalk2firstwalk( (e,to_over[0]) ))
 
     return truth_over
-
-def paths_from_hon(hon, sep=','):
-    paths = pp.Paths()
-    for e,d in hon.edges.items():
-        freq = int(d['weight'])
-        if freq == 0:
-            continue
-
-        pathe = sep.join([e[0], e[1].split(sep)[-1]])
-        paths.add_path(pathe, frequency=freq)
-
-    return paths
-
 
 def highV2lowE(v, sep=','):
     """Takes a k-order node
@@ -84,7 +76,7 @@ def honwalk2firstwalk(honvseq, sep=','):
     return k1walk
 
 
-def compute_roc(pnets, truth_k=2, plot=True, output=None, method='hypa', alpha=0.5):
+def compute_roc(pnets, plot=True, output=None, method='hypa', alpha=0.5):
     """
     Compute Reciever Operating Characteristic for a given network
     """
@@ -95,6 +87,7 @@ def compute_roc(pnets, truth_k=2, plot=True, output=None, method='hypa', alpha=0
     auc_k = []
 
     for _k in range(1,k+1):
+        pickle.dump(pnets[_k].edges, open('edges_pnets_{}.pickle'.format(_k), 'wb'))
         if method == 'fbad':
             edge_weights = [d['weight'] for _,d in pnets[_k].edges.items()]
             mean = np.mean(edge_weights)
@@ -112,11 +105,15 @@ def compute_roc(pnets, truth_k=2, plot=True, output=None, method='hypa', alpha=0
             if method == 'hypa':
                 y_score.append(np.exp(d['pval']))
             elif method == 'fbad':
-                if d['weight'] > (mean + std*alpha):
+                if d['weight'].sum() > (mean + std*alpha):
                     y_score.append(1.0)
                 else:
                     y_score.append(0.0)
 
+        #assert sum(y_true) > 0, "no positives in y_true, wtf?\n_k: {}\nEdges:{}".format(_k, pnets[_k].edges)
+        #if _k == 5:
+        #    print(_k)
+        #    print(pnets[_k].edges)
         fpr, tpr, pthr = metrics.roc_curve(y_true, y_score, drop_intermediate=True)
 
         auc_k.append([_k, metrics.auc(fpr, tpr)])
@@ -219,46 +216,18 @@ def get_prev_markov_ps(curkpnet, pnets):
 
 def get_pnets(paths, maxk, truth_over=[], truth_under=[]):
     pnets = {}
+    #pickle.dump(paths, open('paths.pickle', 'wb'))
+    #print('dumped paths.')
+    #print(paths.paths[len(truth_over[0])])
+    #print(truth_over)
     for k in range(1,maxk+1):
-        hy_k = hypa.Hypa(paths)
-        hy_k.construct_hypa_network(k=k, verbose=False)
-        pnet = hy_k.hypa_net
-        mark_truth(pnet, truth_over=truth_over)
+        hy_k = hypa.Hypa(paths, k=k)
+        hy_k.construct_hypa_network(verbose=False)
+        mark_truth(hy_k, truth_over=truth_over)
         if k > 1:
-            get_prev_markov_ps(pnet, pnets)
-        pnets[k] = pnet
+            get_prev_markov_ps(hy_k, pnets)
+        pnets[k] = hy_k
     return pnets
-
-
-
-################################################################################
-################################################################################
-
-def generate_random_path_data(net1, k_tru, num_seqs = 1500, anomaly_abundance = 0.3, maxk = 5, nnodes1=50,topo_dens=0.05, expand_subpaths=True):
-    nkedges = int(nnodes1**2 * topo_dens / k_tru * 10)
-    randpaths = pp.Paths()
-    for _ in range(nkedges):
-        randpaths.add_path(generate_walk(net1, k_tru), expand_subpaths=expand_subpaths)
-
-    randpaths.expand_subpaths()
-    ## create the k-order and add correlations
-    hy_pnet = hypa.Hypa(randpaths)
-    hy_pnet.construct_hypa_network(k=k_tru, verbose=False)
-    pnetkcorr = hy_pnet.hypa_net
-
-    truth_over = create_truth(pnetkcorr, abundance=anomaly_abundance)
-
-    seq_data = []
-    for _ in range(num_seqs):
-        ww = pp.algorithms.random_walk.generate_walk(pnetkcorr, l=nnodes1)
-        seq_data.append(honwalk2firstwalk(ww))
-
-    paths_data = pp.Paths()
-    for ww in seq_data:
-        paths_data.add_path(ww, expand_subpaths=expand_subpaths)
-
-    return truth_over, paths_data
-
 
 
 
@@ -285,26 +254,31 @@ def generate_pnets_with_anomaly(k_tru, num_seqs = 1500, anomaly_abundance = 0.3,
     for _ in range(nkedges):
         randpaths.add_path(generate_walk(net1, k_tru))
 
-    ## create the k-order and add correlations
-    hy_pnet = hypa.Hypa(randpaths)
-    hy_pnet.construct_hypa_network(k=k_tru, verbose=False)
-    pnetkcorr = hy_pnet.hypa_net
+    ## create the k-order network and add correlations
+    hy_pnet = hypa.Hypa(randpaths, k=k_tru)
+    hy_pnet.construct_hypa_network(verbose=False)
 
-    truth_over = create_truth(pnetkcorr, abundance=anomaly_abundance)
-
-    seq_data = []
-    for _ in range(num_seqs):
-        #ww = pp.algorithms.random_walk.generate_walk(pnetkcorr, l=nnodes1)
-        ww = pp.algorithms.random_walk.generate_walk(pnetkcorr, l=10)
-        seq_data.append(honwalk2firstwalk(ww))
+    truth_over = create_truth(hy_pnet, abundance=anomaly_abundance)
 
     paths_data = pp.Paths()
-    for ww in seq_data:
-        paths_data.add_path(ww)
+    avg_len = 0
+    for _ in range(num_seqs):
+        ww = pp.algorithms.random_walk.generate_walk(hy_pnet, l=10)
+        walk_list = honwalk2firstwalk(ww)
+        avg_len += len(walk_list)
+        paths_data.add_path(walk_list)
+
+    print("Average length of random walk: {}".format(avg_len/num_seqs))
 
     # Get the the HYPA networks for different orders
     pnets = get_pnets(paths_data, maxk=maxk, truth_over=truth_over)
 
+    import pickle
+    for k in pnets:
+        with  open('edges-{}.pickle'.format(k), 'wb')  as pick:
+            pickle.dump(pnets[k].edges, pick)
+    #import sys
+    #sys.exit()
     return pnets, truth_over, paths_data
 
 
@@ -313,12 +287,12 @@ def generate_pnets_with_anomaly(k_tru, num_seqs = 1500, anomaly_abundance = 0.3,
 ################################################################################
 def hypa_auc(max_k=3, n_samples=5):
     auroc = {kt:{k:[] for k in range(1,max_k+1)} for kt in range(2,max_k+1)}
-
+    ## TODO I EDITED THIS RANGE, SHOULD START AT 2
     for kt in range(2, max_k+1):
         print("computing for implanted anomaly length={}...".format(kt))
         for _ in range(n_samples):
             pnets, _,_ = generate_pnets_with_anomaly(kt, maxk=max_k)
-            auc_kt = compute_roc(pnets, kt, plot=False)
+            auc_kt = compute_roc(pnets, plot=False, method='hypa')
             for k,val in auc_kt:
                 auroc[kt][k].append(val)
 
@@ -361,7 +335,7 @@ def fbad_auc(max_k=3, n_samples=5):
         print("computing for implanted anomaly length={}...".format(kt))
         for _ in range(n_samples):
             pnets, _,_ = generate_pnets_with_anomaly(kt, maxk=max_k)
-            auc_kt = compute_roc(pnets, kt, plot=False, method='fbad', alpha=1.0)
+            auc_kt = compute_roc(pnets, plot=False, method='fbad', alpha=1.0)
             for k,val in auc_kt:
                 auroc[kt][k].append(val)
 
@@ -399,8 +373,8 @@ if __name__=="__main__":
     plt.rcParams['ytick.labelsize'] = 26
     plt.rcParams['legend.fontsize'] = 18
 
-    print("Startin hypa_auc")
-    hypa_auc(max_k=5, n_samples=10)
-    plt.clf()
-    print("Starting fbad_auc")
-    fbad_auc(max_k=5, n_samples=10)
+    print("Starting hypa_auc")
+    hypa_auc(max_k=5, n_samples=5)
+    #plt.clf()
+    #print("Starting fbad_auc")
+    #fbad_auc(max_k=5, n_samples=5)

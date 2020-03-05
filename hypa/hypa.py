@@ -69,7 +69,7 @@ class Hypa(HigherOrderNetwork):
             print('Computing the k={} order Xi...'.format(self.order))
 
         ## TODO assuming sparse matrix here
-        ## Compute Xi. Also returns a network object.
+        ## Compute Xi
         self.Xi = computeXiHigherOrder(self, k=self.order, sparsexi=sparsexi, constant_xi=False)
         self.adjacency = self.adjacency_matrix()
 
@@ -81,7 +81,7 @@ class Hypa(HigherOrderNetwork):
             self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xifittol, verbose=verbose)
 
         if constant_xi:
-            self.Xi_cnst, _ = computeXiHigherOrder(self, k=self.order, sparsexi=sparsexi, constant_xi=constant_xi)
+            self.Xi_cnst = computeXiHigherOrder(self, k=self.order, sparsexi=sparsexi, constant_xi=constant_xi)
 
         self.adjacency = self.adjacency_matrix()
 
@@ -147,7 +147,7 @@ class Hypa(HigherOrderNetwork):
                     ## What if I return (source, target, attr) and create the dictionary after?
                     self.edges[(source, target)]['pval'] = pval
                 except Exception as e:
-                    attr = {'weight': 0.0, 'pval':pval, 'xi':xival}
+                    attr = {'weight': np.array([0.0, 0.0]), 'pval':pval, 'xi':xival}
                     self.add_edge(source, target, **attr)
             return 1
 
