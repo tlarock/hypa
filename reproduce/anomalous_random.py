@@ -400,7 +400,7 @@ if __name__=="__main__":
     plt.rcParams['legend.fontsize'] = 18
 
     print("Startin hypa_auc")
-    hypa_auc(max_k=5, n_samples=10)
+    hypa_auc(max_k=5, n_samples=2)
     plt.clf()
-    print("Starting fbad_auc")
-    fbad_auc(max_k=5, n_samples=10)
+    #print("Starting fbad_auc")
+    #fbad_auc(max_k=5, n_samples=10)
