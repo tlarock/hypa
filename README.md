@@ -28,7 +28,7 @@ import pathpy as pp
 import hypa
 paths = pp.Paths()
 paths.add_path(('A','X','C'), frequency=30)
-paths.add_path(('B','X','D'), frequency=30)
+paths.add_path(('B','X','D'), frequency=100)
 paths.add_path(('B','X','C'), frequency=105)
 print(paths)
 hy = hypa.Hypa(paths)
