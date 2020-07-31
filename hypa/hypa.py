@@ -1,14 +1,7 @@
 import numpy as np
 import scipy.sparse as sp
+from scipy.stats import hypergeom
 import pathpy as pp
-
-## import ghypernet from R
-import rpy2.robjects as ro
-import rpy2.robjects.numpy2ri
-from rpy2.robjects.packages import importr
-
-## import my code to work with ghypernet
-from .ghype import ghype
 from .computexi import computeXiHigherOrder, fitXi
 
 
@@ -28,17 +21,6 @@ class Hypa:
         """
 
         self.paths = paths
-        self.initialize_R(ghype_r)
-
-    def initialize_R(self, ghype_r):
-        '''Initialize rpy2 functions'''
-        rpy2.robjects.numpy2ri.activate()
-
-        self.ghypernet = importr('ghypernet')
-        self.rphyper = ro.r['phyper']
-        self.randomgraph = ro.r['rghype']
-        self.ghype_r = ghype_r
-        self.ghype_r_cnst = None
 
     def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
         r"""
@@ -180,43 +162,4 @@ class Hypa:
             from scipy.stats import hypergeom
             return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
         """
-        return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
-
-
-    def draw_sample(self, constant_xi=False, sparse=True):
-        r"""
-        Draw a sample from the hypergeometric ensemble.
-
-        TODO: Add an option/function to return the sample as a Paths object.
-
-        Parameters
-        ----------
-        constant_xi: logical
-            If True, draws from the hypergeometric ensemble with constant xi distributed evenly across the possible edges.
-                Default is False, which uses the fit version of the Xi matrix.
-
-        Returns
-        --------
-        sampled_adj: np.array
-            An array containing the sampled adjacency matrix.
-
-        """
-        assert (self.Xi is not None and not constant_xi) or (self.Xi_cnst is not None and constant_xi) , "Please call initialize_xi() with correct parameters before draw_sample()."
-
-        if (not constant_xi) and self.ghype_r is None:
-            self.initialize_ghyper(constant_xi=constant_xi)
-
-        if constant_xi and self.ghype_r_cnst is None:
-            self.initialize_ghyper(constant_xi=constant_xi)
-
-        if not constant_xi:
-            sampled_adj = self.randomgraph(1, self.ghype_r, m=self.adjacency.sum(), multinomial=False)
-        else:
-            sampled_adj = self.randomgraph(1, self.ghype_r_cnst, m=self.adjacency.sum(), multinomial=False)
-
-        if sparse:
-            sampled_adj = sp.coo_matrix(sampled_adj)
-        else:
-            sampled_adj = np.array(sampled_adj)
-
-        return sampled_adj
+        return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
