@@ -12,9 +12,9 @@ def set_style():
     # plt.rcParams['savefig.bbox'] = 'tight'
     plt.rcParams['savefig.pad_inches'] = 0
     plt.rcParams['savefig.dpi'] = 300
-    plt.rcParams['font.sans-serif'] = ['Roboto Condensed', 
-        'Inter UI', 'Roboto', 'Noto Sans','Helvetica', 'Arial'] + \
-        plt.rcParams['font.sans-serif'] 
+    #plt.rcParams['font.sans-serif'] = ['Roboto Condensed', 
+    #    'Inter UI', 'Roboto', 'Noto Sans','Helvetica', 'Arial'] + \
+    #    plt.rcParams['font.sans-serif'] 
     plt.rcParams['font.size'] = 12
 
 def sequential_color_list():
