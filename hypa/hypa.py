@@ -66,26 +66,6 @@ class Hypa:
         self.adjacency = self.hypa_net.adjacency_matrix()
 
 
-    def initialize_ghyper(self, constant_xi=False):
-        r"""
-        Initialize the ghype_r rpy2 object.
-
-        Parameters
-        ----------
-        constant_xi: logical
-            If True, also compute the Xi matrix that represents the null model where all weight is equally distributed.
-        """
-        adj = self.adjacency.toarray()
-        adjr = ro.r.matrix(adj, nrow=adj.shape[0], ncol=adj.shape[1])
-        ro.r.assign('adj', adjr)
-        ## Use constant omega
-        omega = np.ones(adj.shape)
-        self.ghype_r = self.ghypernet.ghype(adj, directed=True, selfloops=False, xi=self.Xi.toarray(), omega=omega)
-
-        if constant_xi:
-            self.ghype_r_cnst = self.ghypernet.ghype(adj, directed=True, selfloops=False, xi=self.Xi_cnst.toarray(), omega=omega)
-
-
     def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, baseline=False, constant_xi=False, verbose=True):
         """
         Function to compute the significant pathways from a Paths object.
@@ -162,4 +142,7 @@ class Hypa:
             from scipy.stats import hypergeom
             return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
         """
-        return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
+        if log_p:
+            return hypergeom.logcdf(obs_freq, total_xi, xi, total_observations)
+        else:
+            return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
