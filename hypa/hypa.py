@@ -1,9 +1,9 @@
 import numpy as np
 import scipy.sparse as sp
-from scipy.stats import hypergeom
 import pathpy as pp
+from scipy.stats import hypergeom
 from .computexi import computeXiHigherOrder, fitXi
-
+from julia.Distributions import Hypergeometric, cdf, logcdf
 
 class Hypa:
     '''
@@ -21,6 +21,7 @@ class Hypa:
         """
 
         self.paths = paths
+
 
     def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
         r"""
@@ -142,7 +143,9 @@ class Hypa:
             from scipy.stats import hypergeom
             return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
         """
+        hy = Hypergeometric(total_observations, total_xi - total_observations, xi)
+
         if log_p:
-            return hypergeom.logcdf(obs_freq, total_xi, xi, total_observations)
+            return logcdf(hy, obs_freq)
         else:
-            return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
+            return cdf(hy, obs_freq)
