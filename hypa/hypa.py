@@ -1,3 +1,4 @@
+import importlib
 import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
@@ -23,6 +24,7 @@ class Hypa:
         self.implementation = implementation
 
         if self.implementation == 'julia':
+            global Hypergeometric, cdf, logcdf
             from julia.Distributions import Hypergeometric, cdf, logcdf
         elif self.implementation == 'rpy2':
             ## import ghypernet from R
@@ -32,7 +34,9 @@ class Hypa:
             rpy2.robjects.numpy2ri.activate()
             self.rphyper = ro.r['phyper']
         elif self.implementation == 'scipy':
+            global hypergeom
             from scipy.stats import hypergeom
+
 
     def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
         r"""
@@ -149,7 +153,7 @@ class Hypa:
 
     def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
         """
-        Compute hypa score.
+        Compute hypa score using appropriate implementation.
         """
         if self.implementation == 'julia':
             hy = Hypergeometric(total_observations, total_xi - total_observations, xi)
