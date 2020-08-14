@@ -4,6 +4,7 @@
 
 Larock, T., Nanumyan, V., Scholtes, I., Casiraghi, G., Eliassi-Rad, T., Schweitzer, F. (2019) [Detecting Path Anomalies in Time Series Data on Networks](https://arxiv.org/abs/1905.10580). arXiv Prepr. arXiv1905.10580
 
+In the `reproduce/` directory of this repository you can find a Python file called `anomalous_random.py`, which can reproduce Figure 3. You can also find a Jupyter notebook called `flight_analysis.ipynb` that can reproduce Figure 4. 
 
 ## Requirements
 `hypa` is written for python 3+ and requires [`pathpy`](https://github.com/uzhdag/pathpy/tree/master/pathpy), a python package for analyzing sequential data using higher-order network models. You can install `pathpy` via `pip` using the command `pip install pathpy2`.
