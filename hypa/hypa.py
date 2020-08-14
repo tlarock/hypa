@@ -23,6 +23,7 @@ class Hypa:
         self.paths = paths
         self.implementation = implementation
 
+        # only import the relevant distribution function to be used in compute_hypa
         if self.implementation == 'julia':
             global Hypergeometric, cdf, logcdf
             from julia.Distributions import Hypergeometric, cdf, logcdf
