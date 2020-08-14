@@ -60,7 +60,7 @@ class Hypa:
 
         ## Assign k
         self.k = k
-        ## TODO assuming sparse matrix here
+
         ## Compute Xi. Also returns a network object.
         self.Xi, self.hypa_net = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=False)
         self.adjacency = self.hypa_net.adjacency_matrix()
@@ -69,7 +69,7 @@ class Hypa:
             if verbose:
                 print('Fitting Xi...')
 
-            ## TODO again assuming sparse matrix
+            # Fit the Xi matrix to preserve expected in/out weights
             self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xifittol, verbose=verbose)
 
         if constant_xi:
