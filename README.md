@@ -6,7 +6,9 @@ Larock, T., Nanumyan, V., Scholtes, I., Casiraghi, G., Eliassi-Rad, T., Schweitz
 
 
 ## Requirements
-`hypa` is written for python 3+ and requires [`pathpy`](https://github.com/uzhdag/pathpy/tree/master/pathpy), a python package for analyzing sequential data using higher-order network models. You can install `pathpy` via `pip` using the command `pip install pathpy2`.
+`hypa` is written for python 3+ and requires [`pathpy`](https://github.com/uzhdag/pathpy/tree/master/pathpy), a python package for analyzing sequential data using higher-order network models. You can install `pathpy` via `pip` using the command `pip install pathpy2.
+
+Unfortunately, the `scipy.stats` implementation of the hypergeometric distribution is not as precise as either the `R.stats` or `Distributions.jl` versions. Due to this, we have two branches: the `master` branch uses the `Julia` implementation, while the `rpy2` branch uses the `R` implemntation. 
 
 `hypa` also requires the [`rpy2` package](https://rpy2.readthedocs.io/en/version_2.8.x/getting-started.html). This package is used to interface with the R programming language, specifically the `ghypernet` package (available here: https://github.com/gi0na/r-ghypernet). Both need to be installed to work with `hypa`, and installation instructions for each package are available in their respective documentations.
 
