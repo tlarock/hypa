@@ -16,7 +16,7 @@ Due to this, I have made all 3 implementations accessible in this package. Note 
 
 2. `R.stats`: The R implementation is as effective as (if slightly slower than) `Distributions.jl`, but installing [`rpy2`](https://rpy2.github.io/) to access R from Python tends to more finicky (in my experience). 
 
-3.`scipy.stats.hypergeom`: This is the simplest to use, but also the worst performing. Any `scipy.stats` distributino should have `hypergeom` and there should be no trouble with imports. We recommend *not* computing the CDF in log space (e.g. set `log=False` in `Hypa.construct_hypa_network`), since the `logcdf` function is very slow. The `cdf` function sometime has 
+3. `scipy.stats.hypergeom`: This is the simplest to use, but also the worst performing. Any `scipy.stats` distributino should have `hypergeom` and there should be no trouble with imports. We recommend *not* computing the CDF in log space (e.g. set `log=False` in `Hypa.construct_hypa_network`), since the `logcdf` function is very slow. The `cdf` function sometime has 
 
 `hypa` also requires the [`rpy2` package](https://rpy2.readthedocs.io/en/version_2.8.x/getting-started.html). This package is used to interface with the R programming language, specifically the `ghypernet` package (available here: https://github.com/gi0na/r-ghypernet). Both need to be installed to work with `hypa`, and installation instructions for each package are available in their respective documentations.
 
