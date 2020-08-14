@@ -1,16 +1,9 @@
 import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
-
-## import ghypernet from R
-import rpy2.robjects as ro
-import rpy2.robjects.numpy2ri
-from rpy2.robjects.packages import importr
-
-## import my code to work with ghypernet
-from .ghype import ghype
+from scipy.stats import hypergeom
 from .computexi import computeXiHigherOrder, fitXi
-
+from julia.Distributions import Hypergeometric, cdf, logcdf
 
 class Hypa:
     '''
@@ -28,17 +21,7 @@ class Hypa:
         """
 
         self.paths = paths
-        self.initialize_R(ghype_r)
 
-    def initialize_R(self, ghype_r):
-        '''Initialize rpy2 functions'''
-        rpy2.robjects.numpy2ri.activate()
-
-        self.ghypernet = importr('ghypernet')
-        self.rphyper = ro.r['phyper']
-        self.randomgraph = ro.r['rghype']
-        self.ghype_r = ghype_r
-        self.ghype_r_cnst = None
 
     def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
         r"""
@@ -82,26 +65,6 @@ class Hypa:
             self.Xi_cnst, _ = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=constant_xi)
 
         self.adjacency = self.hypa_net.adjacency_matrix()
-
-
-    def initialize_ghyper(self, constant_xi=False):
-        r"""
-        Initialize the ghype_r rpy2 object.
-
-        Parameters
-        ----------
-        constant_xi: logical
-            If True, also compute the Xi matrix that represents the null model where all weight is equally distributed.
-        """
-        adj = self.adjacency.toarray()
-        adjr = ro.r.matrix(adj, nrow=adj.shape[0], ncol=adj.shape[1])
-        ro.r.assign('adj', adjr)
-        ## Use constant omega
-        omega = np.ones(adj.shape)
-        self.ghype_r = self.ghypernet.ghype(adj, directed=True, selfloops=False, xi=self.Xi.toarray(), omega=omega)
-
-        if constant_xi:
-            self.ghype_r_cnst = self.ghypernet.ghype(adj, directed=True, selfloops=False, xi=self.Xi_cnst.toarray(), omega=omega)
 
 
     def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, baseline=False, constant_xi=False, verbose=True):
@@ -180,43 +143,9 @@ class Hypa:
             from scipy.stats import hypergeom
             return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
         """
-        return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
+        hy = Hypergeometric(total_observations, total_xi - total_observations, xi)
 
-
-    def draw_sample(self, constant_xi=False, sparse=True):
-        r"""
-        Draw a sample from the hypergeometric ensemble.
-
-        TODO: Add an option/function to return the sample as a Paths object.
-
-        Parameters
-        ----------
-        constant_xi: logical
-            If True, draws from the hypergeometric ensemble with constant xi distributed evenly across the possible edges.
-                Default is False, which uses the fit version of the Xi matrix.
-
-        Returns
-        --------
-        sampled_adj: np.array
-            An array containing the sampled adjacency matrix.
-
-        """
-        assert (self.Xi is not None and not constant_xi) or (self.Xi_cnst is not None and constant_xi) , "Please call initialize_xi() with correct parameters before draw_sample()."
-
-        if (not constant_xi) and self.ghype_r is None:
-            self.initialize_ghyper(constant_xi=constant_xi)
-
-        if constant_xi and self.ghype_r_cnst is None:
-            self.initialize_ghyper(constant_xi=constant_xi)
-
-        if not constant_xi:
-            sampled_adj = self.randomgraph(1, self.ghype_r, m=self.adjacency.sum(), multinomial=False)
+        if log_p:
+            return logcdf(hy, obs_freq)
         else:
-            sampled_adj = self.randomgraph(1, self.ghype_r_cnst, m=self.adjacency.sum(), multinomial=False)
-
-        if sparse:
-            sampled_adj = sp.coo_matrix(sampled_adj)
-        else:
-            sampled_adj = np.array(sampled_adj)
-
-        return sampled_adj
+            return cdf(hy, obs_freq)
