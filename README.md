@@ -23,7 +23,7 @@ You can install `hypa` as follows:
 
 1. Install and test the above requirements.
 2. Clone this repository using `git clone https://github.com/tlarock/hypa.git` from a terminal session. This command will download this repository to your computer in the current directory. Where you clone does not matter in principle, but it is best to store it somewhere where it will be safe from being deleted and where you can easily find it again later (e.g. your default `~/Downloads` directory may not be the best place).
-3. Enter the cloned repository (`cd hypa`) and run the following command, which will install the package locally: `pip install -e .`
+3. Enter the cloned repository (`cd hypa`) and run the following command, which will install the package locally: `pip install -e .` (if you do not have root access where you are making the installation, try `pip install --user -e .` instead.) 
 4. Test the package by starting a python session in a different directory (e.g. `cd ~`) and typing `import hypa`. 
 
 If you have installation issues that you believe are directly related to `hypa`, please feel free to open an issue on this github repository. We do not maintain any of the other dependencies and so are probably not able to help with installation issues, thuogh you are free to ask.
