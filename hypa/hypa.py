@@ -3,8 +3,6 @@ import scipy.sparse as sp
 from scipy.stats import hypergeom
 import pathpy as pp
 from .computexi import computeXiHigherOrder, fitXi
-import warnings
-warnings.filterwarnings("error")
 
 class Hypa:
     '''
@@ -143,11 +141,7 @@ class Hypa:
             from scipy.stats import hypergeom
             return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
         """
-        try:
-            if log_p:
-                return hypergeom.logcdf(obs_freq, total_xi, xi, total_observations)
-            else:
-                return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
-        except RuntimeWarning:
-            print("Warning with params: {}, {}, {}, {}".format(obs_freq, total_xi, xi, total_observations))
-            import ipdb; ipdb.set_trace()
+        if log_p:
+            return hypergeom.logcdf(obs_freq, total_xi, xi, total_observations)
+        else:
+            return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
