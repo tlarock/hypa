@@ -121,8 +121,9 @@ class Hypa:
             pval = self.compute_hypa(self.adjacency[u,v], xival, xisum, adjsum, log_p=True)
             if xival > 0:
                 try:
-                    ## What if I return (source, target, attr) and create the dictionary after?
                     self.hypa_net.edges[(source, target)]['pval'] = pval
+                    ## xival may have been updated by fitXi, make sure it is set correctly here
+                    self.hypa_net.edges[(source, target)]['xival'] = xival
                 except Exception as e:
                     attr = {'weight': 0.0, 'pval':pval, 'xi':xival}
                     self.hypa_net.add_edge(source, target, **attr)
