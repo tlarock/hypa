@@ -3,18 +3,13 @@ import scipy.sparse as sp
 import pathpy as pp
 
 
-def xi_matrix(network, weighted=True, transposed=False):
+def xi_matrix(network):
     """Returns a sparse xi matrix of the higher-order network. Unless transposed
     is set to true, the entry corresponding to a directed link s->t is stored in row s and
     column t and can be accessed via A[s,t].
 
     Parameters
     ----------
-    weighted: bool
-	if set to False, the function returns a binary adjacency matrix.
-	If set to True, adjacency matrix entries contain edge weights.
-    transposed: bool
-	whether to transpose the matrix or not.
 
     Returns
     -------
@@ -35,24 +30,16 @@ def xi_matrix(network, weighted=True, transposed=False):
     for (s, t), e in network.edges.items():
         row.append(node_to_coord[s])
         col.append(node_to_coord[t])
-        if weighted:
-            data.append(e['xival'])
-        else:
-            data.append(1)
+        data.append(e['xival'])
 
         if not network.directed and t != s:
             row.append(node_to_coord[t])
             col.append(node_to_coord[s])
-            if weighted:
-                data.append(e['xival'])
-            else:
-                data.append(1)
+            data.append(e['xival'])
 
     shape = (network.ncount(), network.ncount())
     A = sp.coo_matrix((data, (row, col)), shape=shape).tocsr()
 
-    if transposed:
-        return A.transpose()
     return A
 
 def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
@@ -111,9 +98,9 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
             network.edges[e]['weight'] = xi_const
 
     if sparsexi:
-        xi = xi_matrix(network, weighted=True).tocoo()
+        xi = xi_matrix(network).tocoo()
     else:
-        xi = xi_matrix(network, weighted=True).toarray()
+        xi = xi_matrix(network).toarray()
 
     return xi, network
 

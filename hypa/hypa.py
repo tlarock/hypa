@@ -2,13 +2,13 @@ import importlib
 import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
-from .computexi import computeXiHigherOrder, fitXi
+from .computexi import computeXiHigherOrder, fitXi, xi_matrix
 
 class Hypa:
     '''
     Class for computing hypa scores on a DeBruijn graph given pathway data.
     '''
-    def __init__(self, implementation='julia'):
+    def __init__(self, implementation):
         """
         Initialize class with pathpy.paths object.
 
@@ -39,9 +39,62 @@ class Hypa:
 
 
     @classmethod
-    def from_paths(cls, paths, implementation='julia'):
+    def from_paths(cls, paths, k, implementation='julia', **kwargs):
         self = cls(implementation=implementation)
         self.paths = paths
+        self.construct_hypa_network(k=k, **kwargs)
+
+        return self
+
+    @classmethod
+    def from_graph_file(cls, input_file, implementation='julia'):
+        ''' Read a file to initialize the hypa object. We assume
+            the file represents a kth order graph and each line
+            is of the form
+                        u_1,u_2,...,u_{k+1},freq
+            Note that the nodes and edges must be parsed from
+            this representation.
+        '''
+        self = cls(implementation=implementation)
+        self.paths = None
+        ## ToDo: Need to rewrite a computeXiHigherOrder using a network object!
+        self.hypa_net = pp.Network(directed=True)
+        with open(input_file, 'r') as fin:
+            ## Can I sort the input so that I can always compute Xi? Could put M at the top of a file
+            for line in fin:
+                line = line.strip()
+                line_list = line.split(',')
+                path = line_list[0:-1]
+                ## Inferring k
+                k = len(path)-1
+                freq = int(line_list[-1])
+                u, v = ','.join(path[0:k]), ','.join(path[1:])
+                print(f"line: {line}, u: {u}, v: {v}")
+                self.hypa_net.add_edge(u, v, weight=freq)
+
+
+        self.adjacency = self.hypa_net.adjacency_matrix()
+
+        for (source, target) in self.hypa_net.edges:
+            xi_val = self.hypa_net.nodes[source]['outweight'] * self.hypa_net.nodes[target]['inweight']
+            self.hypa_net.edges[(source, target)]['xival'] = xi_val
+
+        self.Xi = xi_matrix(self.hypa_net)
+        self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=True, tol=1e-2, verbose=True)
+        reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
+        adjsum = self.adjacency.sum()
+        xisum = self.Xi.sum()
+        for u,v,xival in zip(self.Xi.row, self.Xi.col, self.Xi.data):
+            source, target = reverse_name_dict[u], reverse_name_dict[v]
+            pval = self.compute_hypa(self.adjacency[u,v], xival, xisum, adjsum, log_p=True)
+            print(f'{source}, {target}: {xival}, {np.exp(pval)}')
+            if xival > 0:
+                try:
+                    self.hypa_net.edges[(source, target)]['pval'] = pval
+                    self.hypa_net.edges[(source, target)]['xival'] = xival
+                except Exception as e:
+                    attr = {'weight': 0.0, 'pval':pval, 'xi':xival}
+                    self.hypa_net.add_edge(source, target, **attr)
 
         return self
 
@@ -120,15 +173,13 @@ class Hypa:
 
         """
         def add_edge(u, v, xival, xisum, adjsum, reverse_name_dict):
-            #import rpy2.robjects as ro
-            #import rpy2.robjects.numpy2ri
-            #from rpy2.robjects.packages import importr
             source, target = reverse_name_dict[u],reverse_name_dict[v]
             pval = self.compute_hypa(self.adjacency[u,v], xival, xisum, adjsum, log_p=True)
             if xival > 0:
                 try:
                     ## What if I return (source, target, attr) and create the dictionary after?
                     self.hypa_net.edges[(source, target)]['pval'] = pval
+                    self.hypa_net.edges[(source, target)]['xival'] = xival
                 except Exception as e:
                     attr = {'weight': 0.0, 'pval':pval, 'xi':xival}
                     self.hypa_net.add_edge(source, target, **attr)
@@ -155,7 +206,6 @@ class Hypa:
         reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
         adjsum = self.adjacency.sum()
         for u,v,xival in zip(xicoo.row, xicoo.col, xicoo.data):
-            source, target = reverse_name_dict[u],reverse_name_dict[v]
             add_edge(u, v, xival, xisum, adjsum, reverse_name_dict)
 
     def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
