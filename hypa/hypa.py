@@ -8,7 +8,7 @@ class Hypa:
     '''
     Class for computing hypa scores on a DeBruijn graph given pathway data.
     '''
-    def __init__(self, paths, implementation='julia'):
+    def __init__(self, implementation='julia'):
         """
         Initialize class with pathpy.paths object.
 
@@ -20,7 +20,6 @@ class Hypa:
         """
         assert implementation in ['julia', 'rpy2', 'scipy'], "Invalid implementation."
 
-        self.paths = paths
         self.implementation = implementation
 
         # only import the relevant distribution function to be used in compute_hypa
@@ -38,6 +37,13 @@ class Hypa:
             global hypergeom
             from scipy.stats import hypergeom
 
+
+    @classmethod
+    def from_paths(cls, paths, implementation='julia'):
+        self = cls(implementation=implementation)
+        self.paths = paths
+
+        return self
 
     def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
         r"""
