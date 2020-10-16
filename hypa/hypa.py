@@ -47,7 +47,7 @@ class Hypa:
         return self
 
     @classmethod
-    def from_graph_file(cls, input_file, implementation='julia'):
+    def from_graph_file(cls, input_file, implementation='julia', xitol=1e-2, sparsexi=True, verbose=True):
         ''' Read a file to initialize the hypa object. We assume
             the file represents a kth order graph and each line
             is of the form
@@ -57,8 +57,10 @@ class Hypa:
         '''
         self = cls(implementation=implementation)
         self.paths = None
-        ## ToDo: Need to rewrite a computeXiHigherOrder using a network object!
         self.hypa_net = pp.Network(directed=True)
+        first_order = pp.Network(directed=True)
+
+        print("Reading file.")
         with open(input_file, 'r') as fin:
             ## Can I sort the input so that I can always compute Xi? Could put M at the top of a file
             for line in fin:
@@ -69,25 +71,33 @@ class Hypa:
                 k = len(path)-1
                 freq = int(line_list[-1])
                 u, v = ','.join(path[0:k]), ','.join(path[1:])
-                print(f"line: {line}, u: {u}, v: {v}")
                 self.hypa_net.add_edge(u, v, weight=freq)
+                for i in range(1, len(path)):
+                    edge = (path[i-1], path[i])
+                    if edge not in first_order.edges:
+                        first_order.add_edge(path[i-1], path[i])
 
-
+        print(f"Computing the k={k} order Xi")
         self.adjacency = self.hypa_net.adjacency_matrix()
-
-        for (source, target) in self.hypa_net.edges:
+        possible_paths = pp.HigherOrderNetwork.generate_possible_paths(first_order, k)
+        for path in possible_paths:
+            source, target = [','.join(path[n:n + k]) for n in range(len(path) - k + 1)]
             xi_val = self.hypa_net.nodes[source]['outweight'] * self.hypa_net.nodes[target]['inweight']
-            self.hypa_net.edges[(source, target)]['xival'] = xi_val
+            if xi_val > 0:
+                self.hypa_net.edges[(source, target)]['xival'] = xi_val
+                if 'weight' not in self.hypa_net.edges[(source, target)]:
+                    self.hypa_net.edges[(source, target)]['weight'] = 0.0
 
         self.Xi = xi_matrix(self.hypa_net)
-        self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=True, tol=1e-2, verbose=True)
+        self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xitol, verbose=verbose)
+
+        print("Computing HYPA scores")
         reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
         adjsum = self.adjacency.sum()
         xisum = self.Xi.sum()
         for u,v,xival in zip(self.Xi.row, self.Xi.col, self.Xi.data):
             source, target = reverse_name_dict[u], reverse_name_dict[v]
             pval = self.compute_hypa(self.adjacency[u,v], xival, xisum, adjsum, log_p=True)
-            print(f'{source}, {target}: {xival}, {np.exp(pval)}')
             if xival > 0:
                 try:
                     self.hypa_net.edges[(source, target)]['pval'] = pval
