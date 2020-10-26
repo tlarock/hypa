@@ -63,33 +63,47 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
     ## the weighted xi network (could just be a matrix, not totally necessary to have a network)
     network = pp.Network(directed=True)
 
+    ## generate higher order network, giving us nodes and (non-zero) edges
     higher_order = pp.HigherOrderNetwork(paths, k, separator=separator)
 
-    ## generate all possible paths from the first order network
+    ## generate the first order network, we will use this for generating possible neighbors
     first_order = pp.HigherOrderNetwork(paths, k=1, separator=separator)
-    possible_paths = pp.HigherOrderNetwork.generate_possible_paths(first_order, k)
 
     if constant_xi:
         xi_const = 0
         edges_sofar = 0
 
-    for path in possible_paths:
-        source, target = higher_order.path_to_higher_order_nodes(path)
+    for node in higher_order.nodes:
+        source = node
+        ## If this node has 0 outweight, it will have all 0 xi so can be ignored
+        if higher_order.nodes[source]['outweight'].sum() == 0:
+            continue
 
-        if (source,target) not in network.edges:
-            ## xi computation
-            xi_val = higher_order.nodes[source]['outweight'].sum() * higher_order.nodes[target]['inweight'].sum()
-            if xi_val == 0:
-                continue
+        node_as_path = node.split(separator)
+        fo_neighbors = first_order.successors[node_as_path[-1]]
+        for neighbor in fo_neighbors:
+            ## ToDo separator in split
+            target = ','.join(node_as_path[1:]) + f',{neighbor}'
+            ## If target is not a node or has 0 inweight, it will have 0 xi so can be ignored
+            if target in higher_order.nodes:
+                ## Splitting in to 2 conditionals to avoid defaultdict issue
+                if higher_order.nodes[target]['inweight'].sum() > 0:
+                    if (source,target) not in network.edges:
+                        ## xi computation
+                        xi_val = higher_order.nodes[source]['outweight'].sum() * higher_order.nodes[target]['inweight'].sum()
+                        if xi_val == 0:
+                            continue
 
-            ## add the total observations of this path to the return network
-            observations = paths.paths[k][path].sum()
-            if constant_xi:
-                network.add_edge(source, target, weight=observations)
-                edges_sofar += 1
-                xi_const += (xi_val - xi_const) / edges_sofar
-            else:
-                network.add_edge(source, target, weight=observations, xival=xi_val)
+                        ## add the total observations of this path to the return network
+                        path = tuple(source.split(separator)) + tuple([target[-1]])
+                        observations = paths.paths[k][path].sum()
+
+                        if constant_xi:
+                            network.add_edge(source, target, weight=observations)
+                            edges_sofar += 1
+                            xi_const += (xi_val - xi_const) / edges_sofar
+                        else:
+                            network.add_edge(source, target, weight=observations, xival=xi_val)
 
 
     if constant_xi:
