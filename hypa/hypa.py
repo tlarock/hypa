@@ -79,14 +79,25 @@ class Hypa:
 
         print(f"Computing the k={k} order Xi")
         self.adjacency = self.hypa_net.adjacency_matrix()
-        possible_paths = pp.HigherOrderNetwork.generate_possible_paths(first_order, k)
-        for path in possible_paths:
-            source, target = [','.join(path[n:n + k]) for n in range(len(path) - k + 1)]
-            xi_val = self.hypa_net.nodes[source]['outweight'] * self.hypa_net.nodes[target]['inweight']
-            if xi_val > 0:
-                self.hypa_net.edges[(source, target)]['xival'] = xi_val
-                if 'weight' not in self.hypa_net.edges[(source, target)]:
-                    self.hypa_net.edges[(source, target)]['weight'] = 0.0
+        for node in self.hypa_net.nodes:
+            source = node
+            ## If this node has 0 outweight, it will have all 0 xi so can be ignored
+            if self.hypa_net.nodes[source]['outweight'] == 0:
+                continue
+
+            node_as_path = node.split(',')
+            fo_neighbors = first_order.successors[node_as_path[-1]]
+            for neighbor in fo_neighbors:
+                ## ToDo separator in split
+                target = ','.join(node_as_path[1:]) + f',{neighbor}'
+                ## If target is not a node or has 0 inweight, it will have 0 xi so can be ignored
+                if target in self.hypa_net.nodes:
+                    # Splitting in to 2 lines to avoid defaultdict issue
+                    if self.hypa_net.nodes[target]['inweight'] > 0:
+                        xi_val = self.hypa_net.nodes[source]['outweight'] * self.hypa_net.nodes[target]['inweight']
+                        self.hypa_net.edges[(source, target)]['xival'] = xi_val
+                        if 'weight' not in self.hypa_net.edges[(source, target)]:
+                            self.hypa_net.edges[(source, target)]['weight'] = 0.0
 
         self.Xi = xi_matrix(self.hypa_net)
         self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xitol, verbose=verbose)
