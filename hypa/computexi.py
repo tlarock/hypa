@@ -133,7 +133,6 @@ def xifix_row(m, xi, degs):
     return np.round(xi)
 
 def compute_rmse(indegs, outdegs, xi, xi_sum, m):
-    #val = ((xi/xi_sum*m).sum(axis=1) - outdegs)
     out_sum = np.array((xi/xi_sum*m).sum(axis=1))
     out_sum = out_sum.reshape(max(out_sum.shape))
     in_sum = np.array((xi/xi_sum*m).sum(axis=0))

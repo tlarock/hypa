@@ -47,7 +47,7 @@ class Hypa:
         return self
 
     @classmethod
-    def from_graph_file(cls, input_file, implementation='julia', xitol=1e-2, sparsexi=True, verbose=True):
+    def from_graph_file(cls, input_file, implementation='julia', xitol=1e-2, sparsexi=True, include_zero_weights=True, verbose=True):
         ''' Read a file to initialize the hypa object. We assume
             the file represents a kth order graph and each line
             is of the form
@@ -58,7 +58,8 @@ class Hypa:
         self = cls(implementation=implementation)
         self.paths = None
         self.hypa_net = pp.Network(directed=True)
-        first_order = pp.Network(directed=True)
+        if include_zero_weights:
+            first_order = pp.Network(directed=True)
 
         print("Reading file.")
         with open(input_file, 'r') as fin:
@@ -72,21 +73,30 @@ class Hypa:
                 freq = int(line_list[-1])
                 u, v = ','.join(path[0:k]), ','.join(path[1:])
                 self.hypa_net.add_edge(u, v, weight=freq)
-                for i in range(1, len(path)):
-                    edge = (path[i-1], path[i])
-                    if edge not in first_order.edges:
-                        first_order.add_edge(path[i-1], path[i])
+                if include_zero_weights:
+                    for i in range(1, len(path)):
+                        edge = (path[i-1], path[i])
+                        if edge not in first_order.edges:
+                            first_order.add_edge(path[i-1], path[i])
 
         print(f"Computing the k={k} order Xi")
         self.adjacency = self.hypa_net.adjacency_matrix()
-        possible_paths = pp.HigherOrderNetwork.generate_possible_paths(first_order, k)
-        for path in possible_paths:
-            source, target = [','.join(path[n:n + k]) for n in range(len(path) - k + 1)]
-            xi_val = self.hypa_net.nodes[source]['outweight'] * self.hypa_net.nodes[target]['inweight']
-            if xi_val > 0:
-                self.hypa_net.edges[(source, target)]['xival'] = xi_val
-                if 'weight' not in self.hypa_net.edges[(source, target)]:
-                    self.hypa_net.edges[(source, target)]['weight'] = 0.0
+        if include_zero_weights:
+            possible_paths = pp.HigherOrderNetwork.generate_possible_paths(first_order, k)
+            for path in possible_paths:
+                source, target = [','.join(path[n:n + k]) for n in range(len(path) - k + 1)]
+                xi_val = self.hypa_net.nodes[source]['outweight'] * self.hypa_net.nodes[target]['inweight']
+                if xi_val > 0:
+                    self.hypa_net.edges[(source, target)]['xival'] = xi_val
+                    if 'weight' not in self.hypa_net.edges[(source, target)]:
+                        self.hypa_net.edges[(source, target)]['weight'] = 0.0
+        else:
+            for (source, target) in self.hypa_net.edges:
+                xi_val = self.hypa_net.nodes[source]['outweight'] * self.hypa_net.nodes[target]['inweight']
+                if xi_val > 0:
+                    self.hypa_net.edges[(source, target)]['xival'] = xi_val
+                    if 'weight' not in self.hypa_net.edges[(source, target)]:
+                        self.hypa_net.edges[(source, target)]['weight'] = 0.0
 
         self.Xi = xi_matrix(self.hypa_net)
         self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xitol, verbose=verbose)
