@@ -196,8 +196,11 @@ class Hypa:
         def add_edge(u, v, xival, xisum, adjsum, reverse_name_dict):
             source, target = reverse_name_dict[u],reverse_name_dict[v]
             pval = self.compute_hypa(self.adjacency[u,v], xival, xisum, adjsum, log_p=True)
+            print(source, target, xival, pval, self.hypa_net.edges[(source, target)]['xival'])
             if xival > 0:
                 try:
+                    print(source, target, xival, pval)
+                    print('\n')
                     ## What if I return (source, target, attr) and create the dictionary after?
                     self.hypa_net.edges[(source, target)]['pval'] = pval
                     self.hypa_net.edges[(source, target)]['xival'] = xival
