@@ -147,14 +147,12 @@ class Hypa:
         ## Compute Xi. Also returns a network object.
         self.Xi, self.hypa_net = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi)
         self.adjacency = self.hypa_net.adjacency_matrix()
-
         if redistribute:
             if verbose:
                 print('Fitting Xi...')
 
             # Fit the Xi matrix to preserve expected in/out weights
             self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xifittol, verbose=verbose)
-
         self.adjacency = self.hypa_net.adjacency_matrix()
 
 
@@ -189,11 +187,8 @@ class Hypa:
         def add_edge(u, v, xival, xisum, adjsum, reverse_name_dict):
             source, target = reverse_name_dict[u],reverse_name_dict[v]
             pval = self.compute_hypa(self.adjacency[u,v], xival, xisum, adjsum, log_p=True)
-            print(source, target, xival, pval, self.hypa_net.edges[(source, target)]['xival'])
             if xival > 0:
                 try:
-                    print(source, target, xival, pval)
-                    print('\n')
                     ## What if I return (source, target, attr) and create the dictionary after?
                     self.hypa_net.edges[(source, target)]['pval'] = pval
                     self.hypa_net.edges[(source, target)]['xival'] = xival
@@ -212,10 +207,14 @@ class Hypa:
         xisum = self.Xi.sum()
         xicoo = sp.coo_matrix(self.Xi)
 
-        reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
+        node_name_map = self.hypa_net.node_to_name_map()
+        reverse_name_dict = {val:key for key,val in node_name_map.items()}
         adjsum = self.adjacency.sum()
         for u,v,xival in zip(xicoo.row, xicoo.col, xicoo.data):
-            add_edge(u, v, xival, xisum, adjsum, reverse_name_dict)
+            if xival > 0:
+                add_edge(u, v, xival, xisum, adjsum, reverse_name_dict)
+            elif self.adjacency[u,v] == 0:
+                del self.hypa_net.edges[(reverse_name_dict[u],reverse_name_dict[v])]
 
     def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
         """
