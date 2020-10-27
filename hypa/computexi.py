@@ -42,7 +42,7 @@ def xi_matrix(network):
 
     return A
 
-def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
+def computeXiHigherOrder(paths, k = 2, sparsexi=False):
     r"""
     Compute the Xi matrix for higher order networks.
 
@@ -54,8 +54,6 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
         Order to compute the Xi
     sparsexi: logical
         If True, use scipy sparse matrices. Default False (numpy arrays).
-    constant_xi: logical
-        If True, use a constant xi matrix (null model). Default False. TODO: Better explanation
 
     """
     separator = paths.separator
@@ -68,10 +66,6 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
 
     ## generate the first order network, we will use this for generating possible neighbors
     first_order = pp.HigherOrderNetwork(paths, k=1, separator=separator)
-
-    if constant_xi:
-        xi_const = 0
-        edges_sofar = 0
 
     for node in higher_order.nodes:
         source = node
@@ -97,19 +91,8 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
                         ## add the total observations of this path to the return network
                         path = tuple(source.split(separator)) + tuple([target[-1]])
                         observations = paths.paths[k][path].sum()
+                        network.add_edge(source, target, weight=observations, xival=xi_val)
 
-                        if constant_xi:
-                            network.add_edge(source, target, weight=observations)
-                            edges_sofar += 1
-                            xi_const += (xi_val - xi_const) / edges_sofar
-                        else:
-                            network.add_edge(source, target, weight=observations, xival=xi_val)
-
-
-    if constant_xi:
-        xi_const = np.round(xi_const)
-        for e in network.edges:
-            network.edges[e]['weight'] = xi_const
 
     if sparsexi:
         xi = xi_matrix(network).tocoo()

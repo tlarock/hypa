@@ -119,7 +119,7 @@ class Hypa:
 
         return self
 
-    def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, constant_xi=False, verbose=True):
+    def initialize_xi(self, k=2, sparsexi=True, redistribute=True, xifittol=1e-2, verbose=True):
         r"""
         Initialize the xi matrix for the paths object.
 
@@ -133,8 +133,6 @@ class Hypa:
             If True, call fitXi on the matrix to redistribute excess weights. Default True.
         xifittol: float
             Error tolerance in expected weight for fitXi call. Ignored if redistribute is False.
-        constant_xi: logical
-            If True, also compute the Xi matrix that represents the null model where all weight is equally distributed.
         verbose: logical
             If True, print out details of what is happening.
 
@@ -147,7 +145,7 @@ class Hypa:
         self.k = k
 
         ## Compute Xi. Also returns a network object.
-        self.Xi, self.hypa_net = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=False)
+        self.Xi, self.hypa_net = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi)
         self.adjacency = self.hypa_net.adjacency_matrix()
 
         if redistribute:
@@ -157,13 +155,10 @@ class Hypa:
             # Fit the Xi matrix to preserve expected in/out weights
             self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xifittol, verbose=verbose)
 
-        if constant_xi:
-            self.Xi_cnst, _ = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi, constant_xi=constant_xi)
-
         self.adjacency = self.hypa_net.adjacency_matrix()
 
 
-    def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, baseline=False, constant_xi=False, verbose=True):
+    def construct_hypa_network(self, k=2, log=True, sparsexi=True, redistribute=True, xifittol=1e-2, verbose=True):
         """
         Function to compute the significant pathways from a Paths object.
 
@@ -174,8 +169,6 @@ class Hypa:
             Paths object containing the pathway data.
         order: int
             The order at which the significance should be computed.
-        pthresh: floatd
-            Significance threshold for over/under-represented transitions.
         log: logical
             If True, compute and return pvals as log(p)
 
@@ -214,18 +207,10 @@ class Hypa:
         self.k = k
 
         ## create network and Xi matrix
-        if not baseline:
-            self.initialize_xi(k=self.k, sparsexi=sparsexi, redistribute=redistribute, xifittol=xifittol, constant_xi=constant_xi, verbose=verbose)
+        self.initialize_xi(k=self.k, sparsexi=sparsexi, redistribute=redistribute, xifittol=xifittol, verbose=verbose)
 
-            if not constant_xi:
-                xi = self.Xi
-            else:
-                xi = self.Xi_cnst
-
-            xisum = xi.sum()
-            xicoo = sp.coo_matrix(xi)
-        else:
-            xicoo = sp.coo_matrix(self.adjacency)
+        xisum = self.Xi.sum()
+        xicoo = sp.coo_matrix(self.Xi)
 
         reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
         adjsum = self.adjacency.sum()
