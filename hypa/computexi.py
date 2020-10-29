@@ -77,7 +77,11 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False):
         fo_neighbors = first_order.successors[node_as_path[-1]]
         for neighbor in fo_neighbors:
             ## ToDo separator in split
-            target = ','.join(node_as_path[1:]) + f',{neighbor}'
+            if k > 1:
+                target = ','.join(node_as_path[1:]) + f',{neighbor}'
+            else:
+                target = neighbor
+
             ## If target is not a node or has 0 inweight, it will have 0 xi so can be ignored
             if target in higher_order.nodes:
                 ## Splitting in to 2 conditionals to avoid defaultdict issue
@@ -89,7 +93,7 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False):
                             continue
 
                         ## add the total observations of this path to the return network
-                        path = tuple(source.split(separator)) + tuple([target[-1]])
+                        path = tuple(source.split(separator)) + tuple([target.split(separator)[-1]])
                         observations = paths.paths[k][path].sum()
                         network.add_edge(source, target, weight=observations, xival=xi_val)
 

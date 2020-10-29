@@ -147,6 +147,7 @@ class Hypa:
         ## Compute Xi. Also returns a network object.
         self.Xi, self.hypa_net = computeXiHigherOrder(self.paths, k=self.k, sparsexi=sparsexi)
         self.adjacency = self.hypa_net.adjacency_matrix()
+
         if redistribute:
             if verbose:
                 print('Fitting Xi...')
