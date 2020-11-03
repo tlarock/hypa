@@ -3,18 +3,13 @@ import scipy.sparse as sp
 import pathpy as pp
 
 
-def xi_matrix(network, weighted=True, transposed=False):
+def xi_matrix(network):
     """Returns a sparse xi matrix of the higher-order network. Unless transposed
     is set to true, the entry corresponding to a directed link s->t is stored in row s and
     column t and can be accessed via A[s,t].
 
     Parameters
     ----------
-    weighted: bool
-	if set to False, the function returns a binary adjacency matrix.
-	If set to True, adjacency matrix entries contain edge weights.
-    transposed: bool
-	whether to transpose the matrix or not.
 
     Returns
     -------
@@ -35,27 +30,19 @@ def xi_matrix(network, weighted=True, transposed=False):
     for (s, t), e in network.edges.items():
         row.append(node_to_coord[s])
         col.append(node_to_coord[t])
-        if weighted:
-            data.append(e['xival'])
-        else:
-            data.append(1)
+        data.append(e['xival'])
 
         if not network.directed and t != s:
             row.append(node_to_coord[t])
             col.append(node_to_coord[s])
-            if weighted:
-                data.append(e['xival'])
-            else:
-                data.append(1)
+            data.append(e['xival'])
 
     shape = (network.ncount(), network.ncount())
     A = sp.coo_matrix((data, (row, col)), shape=shape).tocsr()
 
-    if transposed:
-        return A.transpose()
     return A
 
-def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
+def computeXiHigherOrder(paths, k = 2, sparsexi=False):
     r"""
     Compute the Xi matrix for higher order networks.
 
@@ -67,8 +54,6 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
         Order to compute the Xi
     sparsexi: logical
         If True, use scipy sparse matrices. Default False (numpy arrays).
-    constant_xi: logical
-        If True, use a constant xi matrix (null model). Default False. TODO: Better explanation
 
     """
     separator = paths.separator
@@ -76,44 +61,47 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False, constant_xi=False):
     ## the weighted xi network (could just be a matrix, not totally necessary to have a network)
     network = pp.Network(directed=True)
 
+    ## generate higher order network, giving us nodes and (non-zero) edges
     higher_order = pp.HigherOrderNetwork(paths, k, separator=separator)
 
-    ## generate all possible paths from the first order network
+    ## generate the first order network, we will use this for generating possible neighbors
     first_order = pp.HigherOrderNetwork(paths, k=1, separator=separator)
-    possible_paths = pp.HigherOrderNetwork.generate_possible_paths(first_order, k)
 
-    if constant_xi:
-        xi_const = 0
-        edges_sofar = 0
+    for node in higher_order.nodes:
+        source = node
+        ## If this node has 0 outweight, it will have all 0 xi so can be ignored
+        if higher_order.nodes[source]['outweight'].sum() == 0:
+            continue
 
-    for path in possible_paths:
-        source, target = higher_order.path_to_higher_order_nodes(path)
-
-        if (source,target) not in network.edges:
-            ## xi computation
-            xi_val = higher_order.nodes[source]['outweight'].sum() * higher_order.nodes[target]['inweight'].sum()
-            if xi_val == 0:
-                continue
-
-            ## add the total observations of this path to the return network
-            observations = paths.paths[k][path].sum()
-            if constant_xi:
-                network.add_edge(source, target, weight=observations)
-                edges_sofar += 1
-                xi_const += (xi_val - xi_const) / edges_sofar
+        node_as_path = node.split(separator)
+        fo_neighbors = first_order.successors[node_as_path[-1]]
+        for neighbor in fo_neighbors:
+            ## ToDo separator in split
+            if k > 1:
+                target = ','.join(node_as_path[1:]) + f',{neighbor}'
             else:
-                network.add_edge(source, target, weight=observations, xival=xi_val)
+                target = neighbor
 
+            ## If target is not a node or has 0 inweight, it will have 0 xi so can be ignored
+            if target in higher_order.nodes:
+                ## Splitting in to 2 conditionals to avoid defaultdict issue
+                if higher_order.nodes[target]['inweight'].sum() > 0:
+                    if (source,target) not in network.edges:
+                        ## xi computation
+                        xi_val = higher_order.nodes[source]['outweight'].sum() * higher_order.nodes[target]['inweight'].sum()
+                        if xi_val == 0:
+                            continue
 
-    if constant_xi:
-        xi_const = np.round(xi_const)
-        for e in network.edges:
-            network.edges[e]['weight'] = xi_const
+                        ## add the total observations of this path to the return network
+                        path = tuple(source.split(separator)) + tuple([target.split(separator)[-1]])
+                        observations = paths.paths[k][path].sum()
+                        network.add_edge(source, target, weight=observations, xival=xi_val)
+
 
     if sparsexi:
-        xi = xi_matrix(network, weighted=True).tocoo()
+        xi = xi_matrix(network).tocoo()
     else:
-        xi = xi_matrix(network, weighted=True).toarray()
+        xi = xi_matrix(network).toarray()
 
     return xi, network
 
@@ -146,7 +134,6 @@ def xifix_row(m, xi, degs):
     return np.round(xi)
 
 def compute_rmse(indegs, outdegs, xi, xi_sum, m):
-    #val = ((xi/xi_sum*m).sum(axis=1) - outdegs)
     out_sum = np.array((xi/xi_sum*m).sum(axis=1))
     out_sum = out_sum.reshape(max(out_sum.shape))
     in_sum = np.array((xi/xi_sum*m).sum(axis=0))

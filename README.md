@@ -40,8 +40,7 @@ paths.add_path(('A','X','C'), frequency=30)
 paths.add_path(('B','X','D'), frequency=100)
 paths.add_path(('B','X','C'), frequency=105)
 print(paths)
-hy = hypa.Hypa(paths, implementation='julia') # Insert your desired implementation (out of 'julia', 'rpy2', 'scipy') here!
-hy.construct_hypa_network(k=2)
+hy = hypa.Hypa.from_paths(paths, k=2, implementation='julia') # Insert your desired implementation (out of 'julia', 'rpy2', 'scipy') here!
 print(hy.hypa_net)
 print(hy.hypa_net.edges)
 for edge, edge_data in hy.hypa_net.edges.items(): 

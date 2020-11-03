@@ -220,8 +220,7 @@ def get_prev_markov_ps(curkpnet, pnets):
 def get_pnets(paths, maxk, truth_over=[], truth_under=[]):
     pnets = {}
     for k in range(1,maxk+1):
-        hy_k = hypa.Hypa(paths)
-        hy_k.construct_hypa_network(k=k, verbose=False)
+        hy_k = hypa.Hypa.from_paths(paths, k=k, verbose=False)
         pnet = hy_k.hypa_net
         mark_truth(pnet, truth_over=truth_over)
         if k > 1:
@@ -242,8 +241,7 @@ def generate_random_path_data(net1, k_tru, num_seqs = 1500, anomaly_abundance = 
 
     randpaths.expand_subpaths()
     ## create the k-order and add correlations
-    hy_pnet = hypa.Hypa(randpaths)
-    hy_pnet.construct_hypa_network(k=k_tru, verbose=False)
+    hy_pnet = hypa.Hypa.from_paths(randpaths, k=k_tru, verbose=False)
     pnetkcorr = hy_pnet.hypa_net
 
     truth_over = create_truth(pnetkcorr, abundance=anomaly_abundance)
@@ -286,8 +284,7 @@ def generate_pnets_with_anomaly(k_tru, num_seqs = 1500, anomaly_abundance = 0.3,
         randpaths.add_path(generate_walk(net1, k_tru))
 
     ## create the k-order and add correlations
-    hy_pnet = hypa.Hypa(randpaths)
-    hy_pnet.construct_hypa_network(k=k_tru, verbose=False)
+    hy_pnet = hypa.Hypa.from_paths(randpaths, k=k_tru, verbose=False)
     pnetkcorr = hy_pnet.hypa_net
 
     truth_over = create_truth(pnetkcorr, abundance=anomaly_abundance)
@@ -402,5 +399,5 @@ if __name__=="__main__":
     print("Startin hypa_auc")
     hypa_auc(max_k=5, n_samples=2)
     plt.clf()
-    #print("Starting fbad_auc")
-    #fbad_auc(max_k=5, n_samples=10)
+    print("Starting fbad_auc")
+    fbad_auc(max_k=5, n_samples=2)
