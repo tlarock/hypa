@@ -24,8 +24,8 @@ class Hypa:
 
         # only import the relevant distribution function to be used in compute_hypa
         if self.implementation == 'julia':
-            global Hypergeometric, cdf, logcdf
-            from julia.Distributions import Hypergeometric, cdf, logcdf
+            global Hypergeometric, cdf, logcdf, rand
+            from julia.Distributions import Hypergeometric, cdf, logcdf, rand
         elif self.implementation == 'rpy2':
             ## import ghypernet from R
             import rpy2.robjects as ro
@@ -60,7 +60,8 @@ class Hypa:
         self.hypa_net = pp.Network(directed=True)
         first_order = pp.Network(directed=True)
 
-        print("Reading file.")
+        if verbose:
+            print("Reading file.")
         with open(input_file, 'r') as fin:
             ## Can I sort the input so that I can always compute Xi? Could put M at the top of a file
             for line in fin:
@@ -77,7 +78,8 @@ class Hypa:
                     if edge not in first_order.edges:
                         first_order.add_edge(path[i-1], path[i])
 
-        print(f"Computing the k={k} order Xi")
+        if verbose:
+            print(f"Computing the k={k} order Xi")
         self.adjacency = self.hypa_net.adjacency_matrix()
         for node in self.hypa_net.nodes:
             source = node
@@ -102,7 +104,8 @@ class Hypa:
         self.Xi = xi_matrix(self.hypa_net)
         self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xitol, verbose=verbose)
 
-        print("Computing HYPA scores")
+        if verbose:
+            print("Computing HYPA scores")
         reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
         adjsum = self.adjacency.sum()
         xisum = self.Xi.sum()
@@ -234,3 +237,27 @@ class Hypa:
                 return hypergeom.logcdf(obs_freq, total_xi, xi, total_observations)
             else:
                 return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
+
+    def draw_sample(self):
+        r"""
+        Draw a sample from the hypergeometric ensemble.
+
+        Assuming implementation='julia'
+
+        Parameters
+        --------
+
+        Returns
+        --------
+        sampled_network: pathpy.Network
+            A sampled network.
+
+        """
+        edges = self.hypa_net.edges
+        total_xi = self.Xi.sum()
+        total_observations = self.adjacency.sum()
+        for edge in edges:
+            observations = edges[edge]['weight']
+            xi = edges[edge]['xival']
+            hy = Hypergeometric(total_observations, total_xi - total_observations, xi)
+            edges[edge]['sampled_weight'] = rand(hy)
