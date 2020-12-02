@@ -33,6 +33,7 @@ class Hypa:
             from rpy2.robjects.packages import importr
             rpy2.robjects.numpy2ri.activate()
             self.rphyper = ro.r['phyper']
+            self.rrhyper = ro.r['rhyper']
         elif self.implementation == 'scipy':
             global hypergeom
             from scipy.stats import hypergeom
@@ -253,11 +254,26 @@ class Hypa:
             A sampled network.
 
         """
+        assert self.implementation in ['julia', 'rpy2'], "Currently only implemented for Julia."
+        if self.implementation == 'julia':
+            self.draw_sample_julia()
+        elif self.implementation ==  'rpy2':
+            self.draw_sample_rpy2()
+
+    def draw_sample_julia(self):
         edges = self.hypa_net.edges
         total_xi = self.Xi.sum()
         total_observations = self.adjacency.sum()
         for edge in edges:
-            observations = edges[edge]['weight']
             xi = edges[edge]['xival']
             hy = Hypergeometric(total_observations, total_xi - total_observations, xi)
             edges[edge]['sampled_weight'] = rand(hy)
+
+    def draw_sample_rpy2(self):
+        edges = self.hypa_net.edges
+        total_xi = self.Xi.sum()
+        total_observations = self.adjacency.sum()
+        for edge in edges:
+            xi = edges[edge]['xival']
+            rnd = self.rrhyper(1, xi, total_xi-xi, total_observations)[0]
+            edges[edge]['sampled_weight'] = rnd
