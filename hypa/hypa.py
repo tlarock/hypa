@@ -243,7 +243,10 @@ class Hypa:
         r"""
         Draw a sample from the hypergeometric ensemble.
 
-        Assuming implementation='julia'
+        Currently implemented for Juilia and rpy2.
+
+        Implementations inspired by numpy.random.Generator.multivariate_hypergeometric ("marginals" option):
+            https://numpy.org/devdocs/reference/random/generated/numpy.random.Generator.multivariate_hypergeometric.html
 
         Parameters
         --------
@@ -263,17 +266,35 @@ class Hypa:
     def draw_sample_julia(self):
         edges = self.hypa_net.edges
         total_xi = self.Xi.sum()
-        total_observations = self.adjacency.sum()
-        for edge in edges:
+        ## Sample once per existing edge
+        num_samples = self.adjacency.sum()
+        xi_accum = 0
+        for i, edge in enumerate(edges):
+            if num_samples < 1:
+                break
             xi = edges[edge]['xival']
-            hy = Hypergeometric(total_observations, total_xi - total_observations, xi)
-            edges[edge]['sampled_weight'] = rand(hy)
+            xi_accum += xi
+            if i < len(edges) - 1:
+                hy = Hypergeometric(num_samples, total_xi - xi_accum, xi)
+                sample = rand(hy)
+                self.hypa_net.edges[edge]['sampled_weight'] = sample
+                num_samples -= sample
+            else:
+                self.hypa_net.edges[edge]['sampled_weight'] = int(num_samples)
 
     def draw_sample_rpy2(self):
         edges = self.hypa_net.edges
         total_xi = self.Xi.sum()
-        total_observations = self.adjacency.sum()
-        for edge in edges:
+        num_samples = self.adjacency.sum()
+        xi_accum = 0
+        for i, edge in enumerate(edges):
+            if num_samples < 1:
+                break
             xi = edges[edge]['xival']
-            rnd = self.rrhyper(1, xi, total_xi-xi, total_observations)[0]
-            edges[edge]['sampled_weight'] = rnd
+            xi_accum += xi
+            if i < len(edges) - 1:
+                sample = self.rrhyper(1, xi, total_xi-xi_accum-xi, num_samples)[0]
+                edges[edge]['sampled_weight'] = sample
+                num_samples -= sample
+            else:
+                edges[edge]['sampled_weight'] = int(num_samples)
