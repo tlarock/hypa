@@ -2,6 +2,7 @@ import importlib
 import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
+from random import shuffle
 from .computexi import computeXiHigherOrder, fitXi, xi_matrix
 
 class Hypa:
@@ -243,6 +244,13 @@ class Hypa:
         r"""
         Draw a sample from the hypergeometric ensemble.
 
+        Drawing a sample is implemented as sampling a weight
+            for each edge. Sampled weights are stored in the
+            self.hypa_net.edges dictionary with the key
+            'sampled_weight'.
+
+        NOTE: Drawing new sample overwrites old values of 'sampled_weight'
+
         Currently implemented for Juilia and rpy2.
 
         Implementations inspired by numpy.random.Generator.multivariate_hypergeometric ("marginals" option):
@@ -253,8 +261,6 @@ class Hypa:
 
         Returns
         --------
-        sampled_network: pathpy.Network
-            A sampled network.
 
         """
         assert self.implementation in ['julia', 'rpy2'], "Currently only implemented for Julia."
@@ -264,18 +270,22 @@ class Hypa:
             self.draw_sample_rpy2()
 
     def draw_sample_julia(self):
-        edges = self.hypa_net.edges
         total_xi = self.Xi.sum()
         ## Sample once per existing edge
         num_samples = self.adjacency.sum()
         xi_accum = 0
-        for i, edge in enumerate(edges):
+        ## Get edges in randomized order
+        edges_list = list(self.hypa_net.edges.keys())
+        shuffle(edges_list)
+        for i, edge in enumerate(edges_list):
             if num_samples < 1:
                 break
-            xi = edges[edge]['xival']
+            xi = self.hypa_net.edges[edge]['xival']
             xi_accum += xi
-            if i < len(edges) - 1:
-                hy = Hypergeometric(num_samples, total_xi - xi_accum, xi)
+            if i < len(edges_list) - 1:
+                # Hypergeometric distribution for a population with s successes and f failures, and a sequence of n trials.
+                #Hypergeometric(s, f, n)
+                hy = Hypergeometric(xi, total_xi - xi_accum, num_samples)
                 sample = rand(hy)
                 self.hypa_net.edges[edge]['sampled_weight'] = sample
                 num_samples -= sample
@@ -283,18 +293,20 @@ class Hypa:
                 self.hypa_net.edges[edge]['sampled_weight'] = int(num_samples)
 
     def draw_sample_rpy2(self):
-        edges = self.hypa_net.edges
         total_xi = self.Xi.sum()
         num_samples = self.adjacency.sum()
         xi_accum = 0
-        for i, edge in enumerate(edges):
+
+        edges_list = list(self.hypa_net.edges)
+        shuffle(edges_list)
+        for i, edge in enumerate(edges_list):
             if num_samples < 1:
                 break
-            xi = edges[edge]['xival']
+            xi = self.hypa_net.edges[edge]['xival']
             xi_accum += xi
-            if i < len(edges) - 1:
-                sample = self.rrhyper(1, xi, total_xi-xi_accum-xi, num_samples)[0]
-                edges[edge]['sampled_weight'] = sample
+            if i < len(edges_list) - 1:
+                sample = self.rrhyper(1, xi, total_xi-xi_accum, num_samples)[0]
+                self.hypa_net.edges[edge]['sampled_weight'] = sample
                 num_samples -= sample
             else:
-                edges[edge]['sampled_weight'] = int(num_samples)
+                self.hypa_net.edges[edge]['sampled_weight'] = int(num_samples)
