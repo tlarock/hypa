@@ -240,7 +240,7 @@ class Hypa:
             else:
                 return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
 
-    def draw_sample(self):
+    def draw_sample(self, implementation=None, seed=None):
         r"""
         Draw a sample from the hypergeometric ensemble.
 
@@ -263,11 +263,15 @@ class Hypa:
         --------
 
         """
-        assert self.implementation in ['julia', 'rpy2'], "Currently only implemented for Julia."
-        if self.implementation == 'julia':
+        if implementation is None:
+            implementation = self.implementation
+
+        if implementation == 'julia':
             self.draw_sample_julia()
-        elif self.implementation ==  'rpy2':
+        elif implementation ==  'rpy2':
             self.draw_sample_rpy2()
+        elif implementation == 'scipy':
+            self.draw_sample_numpy(seed)
 
     def draw_sample_julia(self):
         total_xi = self.Xi.sum()
@@ -288,9 +292,11 @@ class Hypa:
                 hy = Hypergeometric(xi, total_xi - xi_accum, num_samples)
                 sample = rand(hy)
                 self.hypa_net.edges[edge]['sampled_weight'] = sample
-                num_samples -= sample
             else:
-                self.hypa_net.edges[edge]['sampled_weight'] = int(num_samples)
+                sample = int(num_samples)
+                self.hypa_net.edges[edge]['sampled_weight'] = sample
+
+            num_samples -= sample
 
     def draw_sample_rpy2(self):
         total_xi = self.Xi.sum()
@@ -307,6 +313,18 @@ class Hypa:
             if i < len(edges_list) - 1:
                 sample = self.rrhyper(1, xi, total_xi-xi_accum, num_samples)[0]
                 self.hypa_net.edges[edge]['sampled_weight'] = sample
-                num_samples -= sample
             else:
-                self.hypa_net.edges[edge]['sampled_weight'] = int(num_samples)
+                sample = int(num_samples)
+                self.hypa_net.edges[edge]['sampled_weight'] = sample
+
+            num_samples -= sample
+
+    def draw_sample_numpy(self, seed=None):
+        ## Read xi values in order of hypa_net.edges
+        colors = [int(data['xival']) for _, data in self.hypa_net.edges.items() if data['xival'] > 0]
+        nsamples = int(self.adjacency.sum())
+        gen = np.random.Generator(np.random.PCG64(seed))
+        variates = gen.multivariate_hypergeometric(colors, nsamples, method='count')
+        ## Write sampled_weights in order of hypa_net.edges
+        for i, edge in enumerate(self.hypa_net.edges):
+            self.hypa_net.edges[edge]['sampled_weight'] = variates[i]

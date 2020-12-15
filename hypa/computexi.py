@@ -61,6 +61,9 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False):
     ## the weighted xi network (could just be a matrix, not totally necessary to have a network)
     network = pp.Network(directed=True)
 
+    ## ToDo: Rather than using 2 pathpy constructors, could write code to
+    ## generate both of the below networks in a single loop over paths
+
     ## generate higher order network, giving us nodes and (non-zero) edges
     higher_order = pp.HigherOrderNetwork(paths, k, separator=separator)
 
