@@ -278,15 +278,15 @@ class Hypa:
         ## Sample once per existing edge
         num_samples = self.adjacency.sum()
         xi_accum = 0
-        ## Get edges in randomized order
-        edges_list = list(self.hypa_net.edges.keys())
-        shuffle(edges_list)
-        for i, edge in enumerate(edges_list):
+        ## Loop over the edges
+        for i, edge in enumerate(self.hypa_net.edges):
             if num_samples < 1:
                 break
             xi = self.hypa_net.edges[edge]['xival']
             xi_accum += xi
-            if i < len(edges_list) - 1:
+            #if i < len(edges_list) - 1:
+            if i < len(self.hypa_net.edges) - 1:
+
                 # Hypergeometric distribution for a population with s successes and f failures, and a sequence of n trials.
                 #Hypergeometric(s, f, n)
                 hy = Hypergeometric(xi, total_xi - xi_accum, num_samples)
