@@ -11,13 +11,7 @@ class Hypa:
     '''
     def __init__(self, implementation):
         """
-        Initialize class with pathpy.paths object.
-
-        parameters
-        -----------
-
-        paths: Paths
-            Paths object containing the pathway data.
+        Initialize Hypa object.
         """
         assert implementation in ['julia', 'rpy2', 'scipy'], "Invalid implementation."
 
@@ -42,6 +36,27 @@ class Hypa:
 
     @classmethod
     def from_paths(cls, paths, k, implementation='julia', **kwargs):
+        ''' Accept a pathpy.Paths object
+
+        parameters
+        -----------
+        paths: Paths
+            Paths object containing the pathway data.
+        k: int
+            Path length of interest (order). Measured in
+                    terms of number of edges.
+        implementation: str
+            Which implementation to use to compute the
+                hypergeometric distribution. Options are
+                julia, rpy2, scipy.
+        **kwargs: Keyword arguments to construct_hypa_network
+
+        returns
+        -------
+        self: Hypa
+            The instantiated Hypa object constructed from paths
+
+        '''
         self = cls(implementation=implementation)
         self.paths = paths
         self.construct_hypa_network(k=k, **kwargs)
@@ -56,6 +71,25 @@ class Hypa:
                         u_1,u_2,...,u_{k+1},freq
             Note that the nodes and edges must be parsed from
             this representation.
+
+            parameters
+            ----------
+            input_file: str
+                path to file storing the higher-order graph
+            implementation: str
+                Which implementation to use to compute the
+                    hypergeometric distribution. Options are
+                    julia, rpy2, scipy.
+            xitol: float
+                Error tolerance for redistirbution of Xi values
+            sparsexi: boolean
+                if True, use a scipy.sparse matrix
+            verbose: boolean
+                if True, print more messages
+            returns
+            -------
+            self: Hypa
+                The instantiated Hypa object constructed from paths
         '''
         self = cls(implementation=implementation)
         self.paths = None
