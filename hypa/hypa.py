@@ -33,7 +33,6 @@ class Hypa:
             global hypergeom
             from scipy.stats import hypergeom
 
-
     @classmethod
     def from_paths(cls, paths, k, implementation='julia', **kwargs):
         ''' Accept a pathpy.Paths object
@@ -62,6 +61,111 @@ class Hypa:
         self.construct_hypa_network(k=k, **kwargs)
 
         return self
+
+    @classmethod
+    def from_ngram(cls, input_file, k, frequency=False, implementation='julia', xitol=1e-2, sparsexi=True, verbose=True):
+        '''
+        Accepts a filename to an ngram file where each row is a path. If frequency is True,
+        an integer value at the end of each row counts the total number of times the path
+        occurs in the dataset. Otherwise paths may occur multiple times.
+
+        Useful for cases where ngram file is too large to conveniently read into a paths object.
+        '''
+
+        self = cls(implementation=implementation)
+        self.paths = None
+        self.hypa_net = pp.Network(directed=True)
+        first_order = pp.Network(directed=True)
+
+        lines_read = 0
+        interval_lines = 0
+        interval = 100_000
+        ## Read the input
+        with open(input_file) as fin:
+            for line in fin:
+                lines_read += 1
+                interval_lines += 1
+                if interval_lines == interval and verbose:
+                    print(f'{lines_read} lines read.', flush=True)
+                    interval_lines = 0
+                ## Strip trailing whitespace
+                line = line.strip().split(',')
+
+                ## parse path
+                if frequency:
+                    path = line[0:-1]
+                    freq = int(line[-1])
+                else:
+                    path = line
+                    freq = 1
+
+                ## Add first order edges (always)
+                for i in range(1, len(path)):
+                    edge = (path[i-1], path[i])
+                    if edge not in first_order.edges:
+                        first_order.add_edge(path[i-1], path[i])
+
+                ## Skip a path if its length is less than k
+                if len(path)-1 < k:
+                    continue
+
+                ## Add all edges
+                for i in range(0, len(path)-k):
+                    u, v = ','.join(path[i:i+k]), ','.join(path[i+k:])
+                    if (u,v) in self.hypa_net.edges:
+                        self.hypa_net.edges[(u,v)]['weight'] += freq
+                    else:
+                        self.hypa_net.add_edge(u, v, weight=freq)
+
+
+        if verbose:
+            print(f"Computing the k={k} order Xi")
+
+        self.adjacency = self.hypa_net.adjacency_matrix()
+        for node in self.hypa_net.nodes:
+            source = node
+            ## If this node has 0 outweight, it will have all 0 xi so can be ignored
+            if self.hypa_net.nodes[source]['outweight'] == 0:
+                continue
+
+            node_as_path = node.split(',')
+            fo_neighbors = first_order.successors[node_as_path[-1]]
+            for neighbor in fo_neighbors:
+                ## ToDo separator in split
+                target = ','.join(node_as_path[1:]) + f',{neighbor}'
+                ## If target is not a node or has 0 inweight, it will have 0 xi so can be ignored
+                if target in self.hypa_net.nodes:
+                    # Splitting in to 2 lines to avoid defaultdict issue
+                    if self.hypa_net.nodes[target]['inweight'] > 0:
+                        xi_val = self.hypa_net.nodes[source]['outweight'] * self.hypa_net.nodes[target]['inweight']
+                        self.hypa_net.edges[(source, target)]['xival'] = xi_val
+                        if 'weight' not in self.hypa_net.edges[(source, target)]:
+                            self.hypa_net.edges[(source, target)]['weight'] = 0.0
+
+        self.Xi = xi_matrix(self.hypa_net)
+        self.Xi = fitXi(self.adjacency, self.Xi, sparsexi=sparsexi, tol=xitol, verbose=verbose)
+
+        if verbose:
+            print("Computing HYPA scores")
+        reverse_name_dict = {val:key for key,val in self.hypa_net.node_to_name_map().items()}
+        adjsum = self.adjacency.sum()
+        xisum = self.Xi.sum()
+        for u,v,xival in zip(self.Xi.row, self.Xi.col, self.Xi.data):
+            source, target = reverse_name_dict[u], reverse_name_dict[v]
+            pval = self.compute_hypa(self.adjacency[u,v], xival, xisum, adjsum, log_p=True)
+            if xival > 0:
+                try:
+                    self.hypa_net.edges[(source, target)]['pval'] = pval
+                    self.hypa_net.edges[(source, target)]['xival'] = xival
+                except Exception as e:
+                    attr = {'weight': 0.0, 'pval':pval, 'xi':xival}
+                    self.hypa_net.add_edge(source, target, **attr)
+
+        ## TODO: Saving first order in this case; should make a choice generally
+        self.first_order = first_order
+        return self
+
+
 
     @classmethod
     def from_graph_file(cls, input_file, implementation='julia', xitol=1e-2, sparsexi=True, verbose=True):
@@ -233,8 +337,10 @@ class Hypa:
                     ## xival may have been updated by fitXi, make sure it is set correctly here
                     self.hypa_net.edges[(source, target)]['xival'] = xival
                 except Exception as e:
+                    # add edge myself
                     attr = {'weight': 0.0, 'pval':pval, 'xi':xival}
-                    self.hypa_net.add_edge(source, target, **attr)
+                    #self.hypa_net.add_edge(source, target, **attr)
+                    self.hypa_net.edges[(source,target)] = attr
             return 1
 
 

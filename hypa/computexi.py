@@ -79,7 +79,6 @@ def computeXiHigherOrder(paths, k = 2, sparsexi=False):
         node_as_path = node.split(separator)
         fo_neighbors = first_order.successors[node_as_path[-1]]
         for neighbor in fo_neighbors:
-            ## ToDo separator in split
             if k > 1:
                 target = ','.join(node_as_path[1:]) + f',{neighbor}'
             else:
