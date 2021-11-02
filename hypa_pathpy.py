@@ -2,8 +2,8 @@ import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
 from random import shuffle
-from .computexi import computeXiHigherOrder, fitXi, xi_matrix
-from .hypa import Hypa
+from computexi import computeXiHigherOrder, fitXi, xi_matrix
+from hypa import Hypa
 
 
 class HypaPP(Hypa):
@@ -14,7 +14,7 @@ class HypaPP(Hypa):
         """
         Initialize Hypa object.
         """
-        super(implementation)
+        super().__init__(implementation=implementation)
 
     @classmethod
     def from_paths(cls, paths, k, implementation='julia', **kwargs):
@@ -344,24 +344,6 @@ class HypaPP(Hypa):
                 add_edge(u, v, xival, xisum, adjsum, reverse_name_dict)
             elif self.adjacency[u,v] == 0:
                 del self.hypa_net.edges[(reverse_name_dict[u],reverse_name_dict[v])]
-
-    def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
-        """
-        Compute hypa score using appropriate implementation.
-        """
-        if self.implementation == 'julia':
-            hy = Hypergeometric(total_observations, total_xi - total_observations, xi)
-            if log_p:
-                return logcdf(hy, obs_freq)
-            else:
-                return cdf(hy, obs_freq)
-        elif self.implementation == 'rpy2':
-            return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
-        elif self.implementation == 'scipy':
-            if log_p:
-                return hypergeom.logcdf(obs_freq, total_xi, xi, total_observations)
-            else:
-                return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
 
     def draw_sample(self, implementation=None, seed=None):
         r"""
