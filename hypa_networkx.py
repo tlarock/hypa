@@ -29,6 +29,7 @@ class HypaNX(Hypa):
         self.frequency = frequency
         self.verbose = verbose
         self.xitol = xitol
+        self.observed_only = observed_only
 
         if verbose:
             print("Constructing HON.")
@@ -159,8 +160,7 @@ class HypaNX(Hypa):
         if len(edges_to_remove) > 0:
             self.hypa_net.remove_edges_from(edges_to_remove)
 
-
-    def compute_hypa(obs_freq, xi, total_xi, total_observations, log_p=True):
+    def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
         """
         Compute hypa score. Only using the scipy implementation here.
         """
