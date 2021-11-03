@@ -7,7 +7,8 @@ from hypa import Hypa
 
 class HypaNX(Hypa):
 
-    def __init__(self, input_file, k, xitol=1e-2, observed_only=True,frequency=False, verbose=True):
+    def __init__(self, k, input_file=None, paths=None, xitol=1e-2,
+                 observed_only=True,frequency=False, verbose=True, log_p=True):
         '''
         Accepts an ngram filename and integer k and computes a kth-order
         HON from ngram, including unobserved but possible edges. This
@@ -24,22 +25,73 @@ class HypaNX(Hypa):
         verbose (bool): if True, print more stuff
         '''
         super().__init__(implementation='scipy')
-        self.input_file = input_file
+        if input_file is not None:
+            self.input_file = input_file
+            ngram = True
+        elif paths is not None:
+            self.paths = paths
+            ngram = False
+        else:
+            assert input_file or paths, "Need to specify one of input_file or paths."
+
         self.k = k
         self.frequency = frequency
         self.verbose = verbose
         self.xitol = xitol
         self.observed_only = observed_only
+        self.log_p = log_p
 
         if verbose:
             print("Constructing HON.")
-        self.hypa_from_ngram()
+        if ngram:
+            self.hypa_from_ngram()
+        else:
+            self.hypa_from_paths()
         if verbose:
             print("Constructing xi.")
         self.construct_xi()
         if verbose:
             print("Computing pvals.")
         self.compute_pvals()
+
+    def hypa_from_paths(self):
+        def add_first_order(first_order, path, freq):
+            for i in range(1, len(path)):
+                u, v = path[i-1], path[i]
+                if not first_order.has_edge(u, v):
+                    first_order.add_edge(u, v, weight=freq)
+                else:
+                    first_order.edges[(u, v)]['weight'] += freq
+
+        hypa_net = nx.DiGraph()
+        first_order = nx.DiGraph()
+        k = self.k
+        for l in self.paths.paths.keys():
+            for path, cnt in self.paths.paths[l].items():
+                freq = cnt.sum()
+                add_first_order(first_order, path, freq)
+                if l >= k:
+                    for i in range(0, len(path)-k):
+                        u, v = ','.join(path[i:i+k]), ','.join(path[i+1:i+k+1])
+                        if not hypa_net.has_edge(u, v):
+                            hypa_net.add_edge(u, v, weight=freq)
+                        else:
+                            hypa_net.edges[(u, v)]['weight'] += freq
+
+        # To compute xi correctly, I need to include
+        # all of the possible edges that had 0 frequency.
+        edges_to_add = []
+        for node in hypa_net.nodes():
+            splitnode = node.split(',')
+            prefix = splitnode[1:]
+            target = splitnode[-1]
+            for successor in first_order.successors(target):
+                new_node = prefix + [successor]
+                new_node_str = ','.join(new_node)
+                if (node, new_node_str) not in hypa_net.edges():
+                    edges_to_add.append((node, new_node_str, {'weight': 0}))
+        hypa_net.add_edges_from(edges_to_add)
+        self.hypa_net = hypa_net
 
     def hypa_from_ngram(self):
         # Read ngram file
@@ -160,11 +212,11 @@ class HypaNX(Hypa):
         if len(edges_to_remove) > 0:
             self.hypa_net.remove_edges_from(edges_to_remove)
 
-    def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
+    def compute_hypa(self, obs_freq, xi, total_xi, total_observations):
         """
         Compute hypa score. Only using the scipy implementation here.
         """
-        if log_p:
+        if self.log_p:
             return hypergeom.logcdf(obs_freq, total_xi, xi, total_observations)
         else:
             return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
