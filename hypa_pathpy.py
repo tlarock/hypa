@@ -433,3 +433,22 @@ class HypaPP(Hypa):
         # Write sampled_weights in order of hypa_net.edges
         for i, edge in enumerate(self.hypa_net.edges):
             self.hypa_net.edges[edge]['sampled_weight'] = variates[i]
+
+    def compute_hypa(self, obs_freq, xi, total_xi, total_observations, log_p=True):
+        """
+        Compute hypa score using appropriate implementation.
+        """
+        if self.implementation == 'julia':
+            hy = Hypergeometric(total_observations, total_xi - total_observations, xi)
+            if log_p:
+                return logcdf(hy, obs_freq)
+            else:
+                return cdf(hy, obs_freq)
+        elif self.implementation == 'rpy2':
+            return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
+        elif self.implementation == 'scipy':
+            if log_p:
+                return hypergeom.logcdf(obs_freq, total_xi, xi, total_observations)
+            else:
+                return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
+

@@ -3,12 +3,12 @@ import numpy as np
 from scipy.sparse import dok_matrix
 from computexi import fitXi
 from scipy.stats import hypergeom
-from hypa import Hypa
 
-class HypaNX(Hypa):
 
+class HypaNX():
     def __init__(self, k, input_file=None, paths=None, xitol=1e-2,
-                 observed_only=True,frequency=False, verbose=True, log_p=True):
+                 observed_only=True, frequency=False,
+                 verbose=True, log_p=True):
         '''
         Accepts an ngram filename and integer k and computes a kth-order
         HON from ngram, including unobserved but possible edges. This
@@ -24,7 +24,7 @@ class HypaNX(Hypa):
                         as the frequency of the path
         verbose (bool): if True, print more stuff
         '''
-        super().__init__(implementation='scipy')
+        self.implementation = 'scipy'
         if input_file is not None:
             self.input_file = input_file
             ngram = True
@@ -201,22 +201,39 @@ class HypaNX(Hypa):
         xisum = self.xi.sum()
         adjsum = self.adj.sum()
         edges_to_remove = []
+        weights = []
+        xis = []
+        eoi = []
         for u, v, edat in self.hypa_net.edges(data=True):
             if self.observed_only and edat['weight'] == 0:
                 edges_to_remove.append((u, v))
                 continue
-            pval = self.compute_hypa(edat['weight'], edat['xival'], xisum, adjsum)
-            edat['log-pval'] = pval
-            edat['pval'] = np.exp(pval)
+            weights.append(edat['weight'])
+            xis.append(edat['xival'])
+            eoi.append((u, v))
 
         if len(edges_to_remove) > 0:
             self.hypa_net.remove_edges_from(edges_to_remove)
 
-    def compute_hypa(self, obs_freq, xi, total_xi, total_observations):
-        """
-        Compute hypa score. Only using the scipy implementation here.
-        """
         if self.log_p:
-            return hypergeom.logcdf(obs_freq, total_xi, xi, total_observations)
+            scores = hypergeom.logcdf(weights, xisum, xis, adjsum)
         else:
-            return hypergeom.cdf(obs_freq, total_xi, xi, total_observations)
+            scores = hypergeom.cdf(weights, xisum, xis, adjsum)
+
+        for i, (u, v) in enumerate(eoi):
+            self.hypa_net.edges[(u, v)]['log-pval'] = scores[i]
+            self.hypa_net.edges[(u, v)]['pval'] = np.exp(scores[i])
+
+    def draw_sample(self, seed=None):
+        variates = hypergeom.rvs(int(self.xi.sum()), self.xi.todense().astype(np.int64),
+                                 int(self.adj.sum()))
+        # Write sampled_weights in order of hypa_net.edges
+        for edge in self.hypa_net.edges:
+            self.hypa_net.edges[edge]['sampled_weight'] = variates[self.node_to_idx[edge[0]],
+                                                                   self.node_to_idx[edge[1]]]
+
+    def draw_sample_mat(self):
+        sample_mat = hypergeom.cdf(self.adj, self.xi.sum(),
+                                   self.xi, self.adj.sum())
+        sampled_graph = nx.from_numpy(sample_mat)
+        return sampled_graph
