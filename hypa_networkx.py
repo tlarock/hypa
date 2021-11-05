@@ -10,10 +10,19 @@ class HypaNX():
                  observed_only=True, frequency=False,
                  verbose=True, log_p=True):
         '''
-        Accepts an ngram filename and integer k and computes a kth-order
-        HON from ngram, including unobserved but possible edges. This
-        is necessary for correctly computing the xi matrix in the
-        next step.
+        Accepts a path dataset in one of 3 formats as well as
+        an integer k. Computes a kth-order HON from ngram,
+        optionally including unobserved but possible edges.
+        (necessary for correctly computing the xi matrix).
+
+        Input formats:
+            1. input_file (str) that points to a csv where each
+                row is a path. If frequency = True, each line
+                in input_file ends with a numerical value
+                indicating how many times the path was observed.
+            2. paths (list or dict) containing path data. If a list,
+                each  path is added with frequency 1. If a dictionary,
+                values are assumed to be frequencies of paths.
 
         Parameters
         ---------
@@ -218,29 +227,40 @@ class HypaNX():
         # loop over all edges in hypa_net
         xisum = self.xi.sum()
         adjsum = self.adj.sum()
-        edges_to_remove = []
-        weights = []
-        xis = []
-        eoi = []
-        for u, v, edat in self.hypa_net.edges(data=True):
-            if self.observed_only and edat['weight'] == 0:
-                edges_to_remove.append((u, v))
-                continue
-            weights.append(edat['weight'])
-            xis.append(edat['xival'])
-            eoi.append((u, v))
+        #edges_to_remove = []
+        #weights = []
+        #xis = []
+        #eoi = []
+        #for u, v, edat in self.hypa_net.edges(data=True):
+        #    if self.observed_only and edat['weight'] == 0:
+        #        edges_to_remove.append((u, v))
+        #        continue
+        #    weights.append(edat['weight'])
+        #    xis.append(edat['xival'])
+        #    eoi.append((u, v))
 
-        if len(edges_to_remove) > 0:
-            self.hypa_net.remove_edges_from(edges_to_remove)
+        #if len(edges_to_remove) > 0:
+        #    self.hypa_net.remove_edges_from(edges_to_remove)
 
         if self.log_p:
-            scores = hypergeom.logcdf(weights, xisum, xis, adjsum)
+            #scores = hypergeom.logcdf(weights, xisum, xis, adjsum)
+            scores = hypergeom.logcdf(self.adj.todense(), xisum, self.xi.todense(), adjsum)
         else:
-            scores = hypergeom.cdf(weights, xisum, xis, adjsum)
+            #scores = hypergeom.cdf(weights, xisum, xis, adjsum)
+            scores = hypergeom.cdf(self.adj.todense(), xisum, self.xi.todense(), adjsum)
 
-        for i, (u, v) in enumerate(eoi):
-            self.hypa_net.edges[(u, v)]['log-pval'] = scores[i]
-            self.hypa_net.edges[(u, v)]['pval'] = np.exp(scores[i])
+        for edge in self.hypa_net.edges:
+            if self.log_p:
+                self.hypa_net.edges[edge]['log-pval'] = scores[self.node_to_idx[edge[0]],
+                                                               self.node_to_idx[edge[1]]]
+                self.hypa_net.edges[edge]['pval'] = np.exp(self.hypa_edges[edge]['log-pval'])
+            else:
+                self.hypa_net.edges[edge]['pval'] = scores[self.node_to_idx[edge[0]],
+                                                               self.node_to_idx[edge[1]]]
+                self.hypa_net.edges[edge]['log-pval'] = np.log(self.hypa_edges[edge]['pval'])
+        #for i, (u, v) in enumerate(eoi):
+        #    self.hypa_net.edges[(u, v)]['log-pval'] = scores[i]
+        #    self.hypa_net.edges[(u, v)]['pval'] = np.exp(scores[i])
 
     def draw_sample(self, seed=None):
         variates = hypergeom.rvs(int(self.xi.sum()), self.xi.todense().astype(np.int64),
