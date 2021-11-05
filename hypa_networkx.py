@@ -29,6 +29,9 @@ class HypaNX():
             self.input_file = input_file
             ngram = True
         elif paths is not None:
+            dict_flag = False
+            if isinstance(paths, dict):
+                dict_flag = True
             self.paths = paths
             ngram = False
         else:
@@ -43,19 +46,22 @@ class HypaNX():
 
         if verbose:
             print("Constructing HON.")
+
         if ngram:
             self.hypa_from_ngram()
         else:
-            self.hypa_from_paths()
+            self.hypa_from_list(dict_flag)
+
         if verbose:
             print("Constructing xi.")
+
         self.construct_xi()
+
         if verbose:
             print("Computing pvals.")
         self.compute_pvals()
 
-    # DEPRECATING THIS FUNCTION IN NEXT COMMIT
-    def hypa_from_paths(self):
+    def hypa_from_list(self, dict_flag):
         def add_first_order(first_order, path, freq):
             for i in range(1, len(path)):
                 u, v = path[i-1], path[i]
@@ -67,17 +73,27 @@ class HypaNX():
         hypa_net = nx.DiGraph()
         first_order = nx.DiGraph()
         k = self.k
-        for k_l in self.paths.paths.keys():
-            for path, cnt in self.paths.paths[k_l].items():
-                freq = cnt.sum()
-                add_first_order(first_order, path, freq)
-                if k_l >= k:
-                    u, v = ','.join(path[0:k]), ','.join(path[1:k+1])
-                    if not hypa_net.has_edge(u, v):
-                        hypa_net.add_edge(u, v, weight=freq)
-                    else:
-                        hypa_net.edges[(u, v)]['weight'] += freq
-                    print(u, v, hypa_net.edges[(u,v)]['weight'])
+        for path in self.paths:
+            if dict_flag:
+                freq = self.paths[path]
+            else:
+                freq = 1
+
+            path = list(map(str, path))
+            add_first_order(first_order, path, freq)
+            # Skip a path if its length is less than k
+            k = self.k
+            if len(path)-1 < k:
+                continue
+
+            # Add all nodes and edges
+            for i in range(0, len(path)-k):
+                u, v = ','.join(path[i:i+k]), ','.join(path[i+1:i+k+1])
+                if (u, v) in hypa_net.edges:
+                    hypa_net.edges[(u, v)]['weight'] += freq
+                else:
+                    hypa_net.add_edge(u, v, weight=freq)
+
         # To compute xi correctly, I need to include
         # all of the possible edges that had 0 frequency.
         edges_to_add = []
@@ -98,6 +114,7 @@ class HypaNX():
         hypa_net = nx.DiGraph()
         first_order = nx.DiGraph()
 
+        k = self.k
         lines_read = 0
         interval_lines = 0
         interval = 100_000
@@ -128,7 +145,6 @@ class HypaNX():
                         first_order.add_edge(path[i-1], path[i])
 
                 # Skip a path if its length is less than k
-                k = self.k
                 if len(path)-1 < k:
                     continue
 
@@ -139,7 +155,6 @@ class HypaNX():
                         hypa_net.edges[(u, v)]['weight'] += freq
                     else:
                         hypa_net.add_edge(u, v, weight=freq)
-                    print(u, v, hypa_net.edges[(u,v)]['weight'])
                     obs_sum += freq
 
         # To compute xi correctly, I need to include
