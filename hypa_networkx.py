@@ -8,7 +8,7 @@ from scipy.stats import hypergeom
 class HypaNX():
     def __init__(self, k, input_file=None, paths=None, xitol=1e-2,
                  observed_only=True, frequency=False,
-                 verbose=True, log_p=True):
+                 verbose=True, log_p=False):
         '''
         Accepts a path dataset in one of 3 formats as well as
         an integer k. Computes a kth-order HON from ngram,
@@ -31,6 +31,11 @@ class HypaNX():
         frequency (bool): if True, ngram file rows
                         end with a value to be interpreted
                         as the frequency of the path
+        log_p (bool): if True, comput probabilities in
+                        log space. WARNING: for some
+                        reason, _logpmf is EXTREMELY
+                        slow. Recommend setting this param
+                        to false whenever numerically possible.
         verbose (bool): if True, print more stuff
         '''
         self.implementation = 'scipy'
@@ -179,7 +184,6 @@ class HypaNX():
                 if (node, new_node_str) not in hypa_net.edges():
                     edges_to_add.append((node, new_node_str, {'weight': 0}))
         hypa_net.add_edges_from(edges_to_add)
-
         self.hypa_net = hypa_net
 
     def construct_xi(self):
@@ -227,20 +231,6 @@ class HypaNX():
         # loop over all edges in hypa_net
         xisum = self.xi.sum()
         adjsum = self.adj.sum()
-        #edges_to_remove = []
-        #weights = []
-        #xis = []
-        #eoi = []
-        #for u, v, edat in self.hypa_net.edges(data=True):
-        #    if self.observed_only and edat['weight'] == 0:
-        #        edges_to_remove.append((u, v))
-        #        continue
-        #    weights.append(edat['weight'])
-        #    xis.append(edat['xival'])
-        #    eoi.append((u, v))
-
-        #if len(edges_to_remove) > 0:
-        #    self.hypa_net.remove_edges_from(edges_to_remove)
 
         if self.log_p:
             #scores = hypergeom.logcdf(weights, xisum, xis, adjsum)
@@ -257,10 +247,7 @@ class HypaNX():
             else:
                 self.hypa_net.edges[edge]['pval'] = scores[self.node_to_idx[edge[0]],
                                                                self.node_to_idx[edge[1]]]
-                self.hypa_net.edges[edge]['log-pval'] = np.log(self.hypa_edges[edge]['pval'])
-        #for i, (u, v) in enumerate(eoi):
-        #    self.hypa_net.edges[(u, v)]['log-pval'] = scores[i]
-        #    self.hypa_net.edges[(u, v)]['pval'] = np.exp(scores[i])
+                self.hypa_net.edges[edge]['log-pval'] = np.log(self.hypa_net.edges[edge]['pval'])
 
     def draw_sample(self, seed=None):
         variates = hypergeom.rvs(int(self.xi.sum()), self.xi.todense().astype(np.int64),
