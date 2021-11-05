@@ -54,6 +54,7 @@ class HypaNX():
             print("Computing pvals.")
         self.compute_pvals()
 
+    # DEPRECATING THIS FUNCTION IN NEXT COMMIT
     def hypa_from_paths(self):
         def add_first_order(first_order, path, freq):
             for i in range(1, len(path)):
@@ -66,18 +67,17 @@ class HypaNX():
         hypa_net = nx.DiGraph()
         first_order = nx.DiGraph()
         k = self.k
-        for l in self.paths.paths.keys():
-            for path, cnt in self.paths.paths[l].items():
+        for k_l in self.paths.paths.keys():
+            for path, cnt in self.paths.paths[k_l].items():
                 freq = cnt.sum()
                 add_first_order(first_order, path, freq)
-                if l >= k:
-                    for i in range(0, len(path)-k):
-                        u, v = ','.join(path[i:i+k]), ','.join(path[i+1:i+k+1])
-                        if not hypa_net.has_edge(u, v):
-                            hypa_net.add_edge(u, v, weight=freq)
-                        else:
-                            hypa_net.edges[(u, v)]['weight'] += freq
-
+                if k_l >= k:
+                    u, v = ','.join(path[0:k]), ','.join(path[1:k+1])
+                    if not hypa_net.has_edge(u, v):
+                        hypa_net.add_edge(u, v, weight=freq)
+                    else:
+                        hypa_net.edges[(u, v)]['weight'] += freq
+                    print(u, v, hypa_net.edges[(u,v)]['weight'])
         # To compute xi correctly, I need to include
         # all of the possible edges that had 0 frequency.
         edges_to_add = []
@@ -101,6 +101,7 @@ class HypaNX():
         lines_read = 0
         interval_lines = 0
         interval = 100_000
+        obs_sum = 0
         # Read the input
         with open(self.input_file) as fin:
             for line in fin:
@@ -138,6 +139,8 @@ class HypaNX():
                         hypa_net.edges[(u, v)]['weight'] += freq
                     else:
                         hypa_net.add_edge(u, v, weight=freq)
+                    print(u, v, hypa_net.edges[(u,v)]['weight'])
+                    obs_sum += freq
 
         # To compute xi correctly, I need to include
         # all of the possible edges that had 0 frequency.
