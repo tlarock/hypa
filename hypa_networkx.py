@@ -7,8 +7,7 @@ from scipy.stats import hypergeom
 
 class HypaNX():
     def __init__(self, k, input_file=None, paths=None, xitol=1e-2,
-                 observed_only=True, frequency=False,
-                 verbose=True, log_p=False):
+                 frequency=False, verbose=True, log_p=False, compute_scores=True):
         '''
         Accepts a path dataset in one of 3 formats as well as
         an integer k. Computes a kth-order HON from ngram,
@@ -55,7 +54,6 @@ class HypaNX():
         self.frequency = frequency
         self.verbose = verbose
         self.xitol = xitol
-        self.observed_only = observed_only
         self.log_p = log_p
 
         if verbose:
@@ -71,9 +69,10 @@ class HypaNX():
 
         self.construct_xi()
 
-        if verbose:
-            print("Computing pvals.")
-        self.compute_pvals()
+        if compute_scores:
+            if verbose:
+                print("Computing pvals.")
+            self.compute_pvals()
 
     def hypa_from_list(self, dict_flag):
         def add_first_order(first_order, path, freq):
@@ -215,50 +214,59 @@ class HypaNX():
         xi = fitXi(adj, xi, tol=self.xitol,
                    sparsexi=True, verbose=self.verbose)
         xi = xi.tocsr()
-        for u, v, edat in self.hypa_net.edges(data=True):
-            edat['xival_orig'] = float(edat['xival'])
-            edat['xival'] = xi[node_to_idx[u], node_to_idx[v]]
 
+        # Remove edges from the graph that have zero xi
+        edges_to_remove = []
+        for u, v, edat in self.hypa_net.edges(data=True):
+            if edat['xival'] > 0:
+                edat['xival_orig'] = float(edat['xival'])
+                edat['xival'] = xi[node_to_idx[u], node_to_idx[v]]
+            else:
+                edges_to_remove.append((u, v))
+
+        self.hypa_net.remove_edges_from(edges_to_remove)
         self.adj = adj
         self.xi = xi
         self.node_to_idx = node_to_idx
 
     def compute_pvals(self):
         '''
-        Compute pvalues for the edges in hypa_net. If observed_only is True,
-        only compute pvalues for edges with weight > 0.
+        Compute pvalues for the edges in hypa_net.
         '''
         # loop over all edges in hypa_net
-        xisum = self.xi.sum()
-        adjsum = self.adj.sum()
-
-        if self.log_p:
-            #scores = hypergeom.logcdf(weights, xisum, xis, adjsum)
-            scores = hypergeom.logcdf(self.adj.todense(), xisum, self.xi.todense(), adjsum)
-        else:
-            #scores = hypergeom.cdf(weights, xisum, xis, adjsum)
-            scores = hypergeom.cdf(self.adj.todense(), xisum, self.xi.todense(), adjsum)
-
-        for edge in self.hypa_net.edges:
+        xisum = int(self.xi.sum())
+        adjsum = int(self.adj.sum())
+        idx_to_node = {idx:node for node, idx in self.node_to_idx.items()}
+        rows, cols = self.adj.nonzero()
+        for row, col in zip(rows,cols):
+            edge = idx_to_node[row], idx_to_node[col]
             if self.log_p:
-                self.hypa_net.edges[edge]['log-pval'] = scores[self.node_to_idx[edge[0]],
-                                                               self.node_to_idx[edge[1]]]
+                self.hypa_net.edges[edge]['log-pval'] = hypergeom.logcdf(self.adj[row,col],
+                                                                         xisum,
+                                                                         self.xi[row,col],
+                                                                         adjsum)
                 self.hypa_net.edges[edge]['pval'] = np.exp(self.hypa_edges[edge]['log-pval'])
             else:
-                self.hypa_net.edges[edge]['pval'] = scores[self.node_to_idx[edge[0]],
-                                                               self.node_to_idx[edge[1]]]
+                self.hypa_net.edges[edge]['pval'] = hypergeom.cdf(self.adj[row,col],
+                                                                  xisum,
+                                                                  self.xi[row,col],
+                                                                  adjsum)
                 self.hypa_net.edges[edge]['log-pval'] = np.log(self.hypa_net.edges[edge]['pval'])
 
     def draw_sample(self, seed=None):
-        variates = hypergeom.rvs(int(self.xi.sum()), self.xi.todense().astype(np.int64),
-                                 int(self.adj.sum()))
-        # Write sampled_weights in order of hypa_net.edges
-        for edge in self.hypa_net.edges:
-            self.hypa_net.edges[edge]['sampled_weight'] = variates[self.node_to_idx[edge[0]],
-                                                                   self.node_to_idx[edge[1]]]
+        xisum = int(self.xi.sum())
+        adjsum = int(self.adj.sum())
+        idx_to_node = {idx: node for node, idx in self.node_to_idx.items()}
+        rows, cols = self.xi.nonzero()
+        for row, col in zip(rows, cols):
+            edge = idx_to_node[row], idx_to_node[col]
+            assert self.xi[row, col] > 0, f"xi 0 for {row}, {col}, {edge}"
+            self.hypa_net.edges[edge]['sampled_weight'] = hypergeom.rvs(xisum,
+                                                                  int(self.xi[row, col]),
+                                                                  adjsum)
 
     def draw_sample_mat(self):
-        sample_mat = hypergeom.cdf(self.adj, self.xi.sum(),
-                                   self.xi, self.adj.sum())
+        sample_mat = hypergeom.rvs(self.xi.sum(), self.xi.todense(),
+                                   self.adj.sum())
         sampled_graph = nx.from_numpy(sample_mat)
         return sampled_graph
