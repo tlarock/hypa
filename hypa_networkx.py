@@ -261,9 +261,8 @@ class HypaNX():
         for row, col in zip(rows, cols):
             edge = idx_to_node[row], idx_to_node[col]
             assert self.xi[row, col] > 0, f"xi 0 for {row}, {col}, {edge}"
-            self.hypa_net.edges[edge]['sampled_weight'] = hypergeom.rvs(xisum,
-                                                                  int(self.xi[row, col]),
-                                                                  adjsum)
+            weight = hypergeom.rvs(xisum, int(self.xi[row, col]), adjsum)
+            self.hypa_net.edges[edge]['sampled_weight'] = weight
 
     def draw_sample_mat(self):
         sample_mat = hypergeom.rvs(self.xi.sum(), self.xi.todense(),
