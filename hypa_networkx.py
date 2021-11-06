@@ -7,7 +7,8 @@ from scipy.stats import hypergeom
 
 class HypaNX():
     def __init__(self, k, input_file=None, paths=None, xitol=1e-2,
-                 frequency=False, verbose=True, log_p=False, compute_scores=True):
+                 frequency=False, verbose=True, log_p=False,
+                 compute_scores=True, check_selfloops=False):
         '''
         Accepts a path dataset in one of 3 formats as well as
         an integer k. Computes a kth-order HON from ngram,
@@ -55,7 +56,7 @@ class HypaNX():
         self.verbose = verbose
         self.xitol = xitol
         self.log_p = log_p
-
+        self.check_selfloops = check_selfloops
         if verbose:
             print("Constructing HON.")
 
@@ -93,6 +94,9 @@ class HypaNX():
                 freq = 1
 
             path = list(map(str, path))
+            if self.check_selfloops:
+                path = remove_selfloops(path)
+
             add_first_order(first_order, path, freq)
             # Skip a path if its length is less than k
             k = self.k
@@ -102,9 +106,6 @@ class HypaNX():
             # Add all nodes and edges
             for i in range(0, len(path)-k):
                 u, v = ','.join(path[i:i+k]), ','.join(path[i+1:i+k+1])
-                if u == v:
-                    # No selfloops
-                    continue
                 if (u, v) in hypa_net.edges:
                     hypa_net.edges[(u, v)]['weight'] += freq
                 else:
@@ -120,9 +121,6 @@ class HypaNX():
             for successor in first_order.successors(target):
                 new_node = prefix + [successor]
                 new_node_str = ','.join(new_node)
-                if node == new_node_str:
-                    # No selfloops
-                    continue
                 if (node, new_node_str) not in hypa_net.edges():
                     edges_to_add.append((node, new_node_str, {'weight': 0}))
         hypa_net.add_edges_from(edges_to_add)
@@ -157,11 +155,10 @@ class HypaNX():
                     path = line
                     freq = 1
 
+                if self.check_selfloops:
+                    path = remove_selfloops(path)
                 # Add first order edges (always)
                 for i in range(1, len(path)):
-                    if path[i-1] == path[i]:
-                        # No selfloops
-                        continue
                     edge = (path[i-1], path[i])
                     if edge not in first_order.edges:
                         first_order.add_edge(path[i-1], path[i])
@@ -173,9 +170,6 @@ class HypaNX():
                 # Add all nodes and edges
                 for i in range(0, len(path)-k):
                     u, v = ','.join(path[i:i+k]), ','.join(path[i+1:i+k+1])
-                    if  u == v:
-                        # No selfloops
-                        continue
                     if (u, v) in hypa_net.edges:
                         hypa_net.edges[(u, v)]['weight'] += freq
                     else:
@@ -281,3 +275,17 @@ class HypaNX():
                                    self.adj.sum())
         sampled_graph = nx.from_numpy(sample_mat)
         return sampled_graph
+
+def remove_selfloops(path):
+    '''
+    Accepts a path and removes any selfloops.
+    '''
+    i = 1
+    end = len(path)
+    while i < end:
+        if path[i-1] == path[i]:
+            del path[i-1]
+            end-=1
+        else:
+            i+=1
+    return path
