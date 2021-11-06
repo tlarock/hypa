@@ -102,6 +102,9 @@ class HypaNX():
             # Add all nodes and edges
             for i in range(0, len(path)-k):
                 u, v = ','.join(path[i:i+k]), ','.join(path[i+1:i+k+1])
+                if u == v:
+                    # No selfloops
+                    continue
                 if (u, v) in hypa_net.edges:
                     hypa_net.edges[(u, v)]['weight'] += freq
                 else:
@@ -117,6 +120,9 @@ class HypaNX():
             for successor in first_order.successors(target):
                 new_node = prefix + [successor]
                 new_node_str = ','.join(new_node)
+                if node == new_node_str:
+                    # No selfloops
+                    continue
                 if (node, new_node_str) not in hypa_net.edges():
                     edges_to_add.append((node, new_node_str, {'weight': 0}))
         hypa_net.add_edges_from(edges_to_add)
@@ -153,6 +159,9 @@ class HypaNX():
 
                 # Add first order edges (always)
                 for i in range(1, len(path)):
+                    if path[i-1] == path[i]:
+                        # No selfloops
+                        continue
                     edge = (path[i-1], path[i])
                     if edge not in first_order.edges:
                         first_order.add_edge(path[i-1], path[i])
@@ -164,6 +173,9 @@ class HypaNX():
                 # Add all nodes and edges
                 for i in range(0, len(path)-k):
                     u, v = ','.join(path[i:i+k]), ','.join(path[i+1:i+k+1])
+                    if  u == v:
+                        # No selfloops
+                        continue
                     if (u, v) in hypa_net.edges:
                         hypa_net.edges[(u, v)]['weight'] += freq
                     else:
