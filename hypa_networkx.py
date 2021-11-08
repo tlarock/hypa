@@ -125,6 +125,7 @@ class HypaNX():
                     edges_to_add.append((node, new_node_str, {'weight': 0}))
         hypa_net.add_edges_from(edges_to_add)
         self.hypa_net = hypa_net
+        self.first_order = first_order
 
     def hypa_from_ngram(self):
         # Read ngram file
@@ -190,6 +191,7 @@ class HypaNX():
                     edges_to_add.append((node, new_node_str, {'weight': 0}))
         hypa_net.add_edges_from(edges_to_add)
         self.hypa_net = hypa_net
+        self.first_order = first_order
 
     def construct_xi(self):
         '''
