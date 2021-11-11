@@ -8,7 +8,8 @@ from scipy.stats import hypergeom
 class HypaNX():
     def __init__(self, k, input_file=None, paths=None, xitol=1e-2,
                  frequency=False, verbose=True, log_p=False,
-                 compute_scores=True, check_selfloops=False):
+                 compute_scores=True, construct_xi=True,
+                 check_selfloops=False):
         '''
         Accepts a path dataset in one of 3 formats as well as
         an integer k. Computes a kth-order HON from ngram,
@@ -65,10 +66,11 @@ class HypaNX():
         else:
             self.hypa_from_list(dict_flag)
 
-        if verbose:
-            print("Constructing xi.")
+        if construct_xi:
+            if verbose:
+                print("Constructing xi.")
 
-        self.construct_xi()
+            self.construct_xi()
 
         if compute_scores:
             if verbose:
