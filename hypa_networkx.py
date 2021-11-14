@@ -164,7 +164,9 @@ class HypaNX():
                 for i in range(1, len(path)):
                     edge = (path[i-1], path[i])
                     if edge not in first_order.edges:
-                        first_order.add_edge(path[i-1], path[i])
+                        first_order.add_edge(path[i-1], path[i], weight=freq)
+                    else:
+                        first_order[path[-1]][path[i]]['weight'] += freq
 
                 # Skip a path if its length is less than k
                 if len(path)-1 < k:
