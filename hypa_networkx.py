@@ -249,7 +249,7 @@ class HypaNX():
         xisum = int(self.xi.sum())
         adjsum = int(self.adj.sum())
         idx_to_node = {idx:node for node, idx in self.node_to_idx.items()}
-        rows, cols = self.adj.nonzero()
+        rows, cols = self.xi.nonzero()
         for row, col in zip(rows,cols):
             edge = idx_to_node[row], idx_to_node[col]
             if self.log_p:
