@@ -217,11 +217,12 @@ def get_prev_markov_ps(curkpnet, pnets):
             # assign the lower-order probability
             curkpnet.edges[e][currpkey] = mp
 
-def get_pnets(paths, maxk, truth_over=[], truth_under=[]):
+def get_pnets(paths, maxk, truth_over=[], truth_under=[],
+              implementation="scipy"):
     pnets = {}
     for k in range(1,maxk+1):
         hy_k = HypaPP.from_paths(paths, k=k, verbose=False,
-                                 implementation="scipy")
+                                 implementation=implementation)
         pnet = hy_k.hypa_net
         mark_truth(pnet, truth_over=truth_over)
         if k > 1:
@@ -234,7 +235,9 @@ def get_pnets(paths, maxk, truth_over=[], truth_under=[]):
 ################################################################################
 ################################################################################
 
-def generate_random_path_data(net1, k_tru, num_seqs = 1500, anomaly_abundance = 0.3, maxk = 5, nnodes1=50,topo_dens=0.05, expand_subpaths=True):
+def generate_random_path_data(net1, k_tru, num_seqs = 1500, anomaly_abundance =
+                              0.3, maxk = 5, nnodes1=50,topo_dens=0.05,
+                              expand_subpaths=True, implementation="scipy"):
     nkedges = int(nnodes1**2 * topo_dens / k_tru * 10)
     randpaths = pp.Paths()
     for _ in range(nkedges):
@@ -243,7 +246,7 @@ def generate_random_path_data(net1, k_tru, num_seqs = 1500, anomaly_abundance = 
     randpaths.expand_subpaths()
     ## create the k-order and add correlations
     hy_pnet = HypaPP.from_paths(randpaths, k=k_tru, verbose=False,
-                                implementation="scipy")
+                                implementation=implementation)
     pnetkcorr = hy_pnet.hypa_net
 
     truth_over = create_truth(pnetkcorr, abundance=anomaly_abundance)
@@ -265,8 +268,8 @@ def generate_random_path_data(net1, k_tru, num_seqs = 1500, anomaly_abundance = 
 ################################################################################
 ################################################################################
 
-def generate_pnets_with_anomaly(k_tru, num_seqs = 1500, anomaly_abundance = 0.3, maxk = 5, 
-                                topo_dens = 0.05, nnodes1 = 50, nkedges = None):
+def generate_pnets_with_anomaly(k_tru, num_seqs = 1500, anomaly_abundance = 0.3, maxk = 5,
+                                topo_dens = 0.05, nnodes1 = 50, nkedges = None, implementation="scipy"):
 
     if nkedges is None:
         nkedges = int(nnodes1**2 * topo_dens / k_tru * 10)
@@ -287,7 +290,7 @@ def generate_pnets_with_anomaly(k_tru, num_seqs = 1500, anomaly_abundance = 0.3,
 
     ## create the k-order and add correlations
     hy_pnet = HypaPP.from_paths(randpaths, k=k_tru, verbose=False,
-                                implementation="scipy")
+                                implementation=implementation)
     pnetkcorr = hy_pnet.hypa_net
 
     truth_over = create_truth(pnetkcorr, abundance=anomaly_abundance)
@@ -303,7 +306,8 @@ def generate_pnets_with_anomaly(k_tru, num_seqs = 1500, anomaly_abundance = 0.3,
         paths_data.add_path(ww)
 
     # Get the the HYPA networks for different orders
-    pnets = get_pnets(paths_data, maxk=maxk, truth_over=truth_over)
+    pnets = get_pnets(paths_data, maxk=maxk, truth_over=truth_over,
+                      implementation=implementation)
 
     return pnets, truth_over, paths_data
 
@@ -311,13 +315,14 @@ def generate_pnets_with_anomaly(k_tru, num_seqs = 1500, anomaly_abundance = 0.3,
 ################################################################################
 ################################################################################
 ################################################################################
-def hypa_auc(max_k=3, n_samples=5):
+def hypa_auc(max_k=3, n_samples=5, implementation="scipy"):
     auroc = {kt:{k:[] for k in range(1,max_k+1)} for kt in range(2,max_k+1)}
 
     for kt in range(2, max_k+1):
         print("computing for implanted anomaly length={}...".format(kt))
         for _ in range(n_samples):
-            pnets, _,_ = generate_pnets_with_anomaly(kt, maxk=max_k)
+            pnets, _,_ = generate_pnets_with_anomaly(kt, maxk=max_k,
+                                                     implementation=implementation)
             auc_kt = compute_roc(pnets, kt, plot=False)
             for k,val in auc_kt:
                 auroc[kt][k].append(val)
@@ -351,7 +356,7 @@ def hypa_auc(max_k=3, n_samples=5):
     plt.savefig('output/randmod-auroc.pdf')
 
 
-def fbad_auc(max_k=3, n_samples=5):
+def fbad_auc(max_k=3, n_samples=5, implementation="scipy"):
     '''
     Compute AUC for FBAD baseline.
     '''
@@ -360,7 +365,8 @@ def fbad_auc(max_k=3, n_samples=5):
     for kt in range(2, max_k+1):
         print("computing for implanted anomaly length={}...".format(kt))
         for _ in range(n_samples):
-            pnets, _,_ = generate_pnets_with_anomaly(kt, maxk=max_k)
+            pnets, _,_ = generate_pnets_with_anomaly(kt, maxk=max_k,
+                                                     implementation=implementation)
             auc_kt = compute_roc(pnets, kt, plot=False, method='fbad', alpha=1.0)
             for k,val in auc_kt:
                 auroc[kt][k].append(val)
@@ -400,7 +406,8 @@ if __name__=="__main__":
     plt.rcParams['legend.fontsize'] = 18
 
     print("Startin hypa_auc")
-    hypa_auc(max_k=5, n_samples=2)
+    implementation="scipy"
+    hypa_auc(max_k=5, n_samples=2, implementation=implementation)
     plt.clf()
     print("Starting fbad_auc")
-    fbad_auc(max_k=5, n_samples=2)
+    fbad_auc(max_k=5, n_samples=2, implementation=implementation)
