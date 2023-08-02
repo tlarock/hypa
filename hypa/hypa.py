@@ -23,5 +23,5 @@ class Hypa:
             self.rphyper = ro.r['phyper']
             self.rrhyper = ro.r['rhyper']
         elif self.implementation == 'scipy':
-            global hypergeom
-            from scipy.stats import hypergeom
+            # Importing scipy in hypa_* files.
+            pass

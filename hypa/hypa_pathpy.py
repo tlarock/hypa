@@ -2,8 +2,10 @@ import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
 from random import shuffle
-from computexi import computeXiHigherOrder, fitXi, xi_matrix
-from hypa import Hypa
+from scipy.stats import hypergeom
+
+from .computexi import computeXiHigherOrder, fitXi, xi_matrix
+from .hypa import Hypa
 
 
 class HypaPP(Hypa):

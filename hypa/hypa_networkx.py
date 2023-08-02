@@ -1,9 +1,9 @@
 import networkx as nx
 import numpy as np
 from scipy.sparse import dok_matrix
-from computexi import fitXi
 from scipy.stats import hypergeom
 
+from .computexi import fitXi
 
 class HypaNX():
     def __init__(self, k, input_file=None, paths=None, xitol=1e-2,

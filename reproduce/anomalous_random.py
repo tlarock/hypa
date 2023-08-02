@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import pathpy as pp
 from pathpy.algorithms.random_walk import generate_walk
 
-import hypa
+from hypa import HypaPP
 
 from sklearn import metrics
 
@@ -220,7 +220,8 @@ def get_prev_markov_ps(curkpnet, pnets):
 def get_pnets(paths, maxk, truth_over=[], truth_under=[]):
     pnets = {}
     for k in range(1,maxk+1):
-        hy_k = hypa.Hypa.from_paths(paths, k=k, verbose=False)
+        hy_k = HypaPP.from_paths(paths, k=k, verbose=False,
+                                 implementation="scipy")
         pnet = hy_k.hypa_net
         mark_truth(pnet, truth_over=truth_over)
         if k > 1:
@@ -241,7 +242,8 @@ def generate_random_path_data(net1, k_tru, num_seqs = 1500, anomaly_abundance = 
 
     randpaths.expand_subpaths()
     ## create the k-order and add correlations
-    hy_pnet = hypa.Hypa.from_paths(randpaths, k=k_tru, verbose=False)
+    hy_pnet = HypaPP.from_paths(randpaths, k=k_tru, verbose=False,
+                                implementation="scipy")
     pnetkcorr = hy_pnet.hypa_net
 
     truth_over = create_truth(pnetkcorr, abundance=anomaly_abundance)
@@ -284,7 +286,8 @@ def generate_pnets_with_anomaly(k_tru, num_seqs = 1500, anomaly_abundance = 0.3,
         randpaths.add_path(generate_walk(net1, k_tru))
 
     ## create the k-order and add correlations
-    hy_pnet = hypa.Hypa.from_paths(randpaths, k=k_tru, verbose=False)
+    hy_pnet = HypaPP.from_paths(randpaths, k=k_tru, verbose=False,
+                                implementation="scipy")
     pnetkcorr = hy_pnet.hypa_net
 
     truth_over = create_truth(pnetkcorr, abundance=anomaly_abundance)

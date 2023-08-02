@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hypa"
+version = "0.0.1"
+authors = [{name="Timothy LaRock", email="timothylarock@gmail.com"}]
+description = "Repository for hypa score computation."
+
+[tool.setuptools.packages.find]
+include = ["hypa"]  # ["*"] by default
+exclude = ["data", "reproduce"]  # empty by default
