@@ -2,11 +2,9 @@ import numpy as np
 import scipy.sparse as sp
 import pathpy as pp
 from random import shuffle
-from scipy.stats import hypergeom
 
+from .hypa import *
 from .computexi import computeXiHigherOrder, fitXi, xi_matrix
-from .hypa import Hypa
-
 
 class HypaPP(Hypa):
     '''
@@ -396,8 +394,8 @@ class HypaPP(Hypa):
 
                 # Hypergeometric distribution for a population with s successes and f failures, and a sequence of n trials.
                 #Hypergeometric(s, f, n)
-                hy = Hypergeometric(xi, total_xi - xi_accum, num_samples)
-                sample = rand(hy)
+                hy = self.Hypergeometric(xi, total_xi - xi_accum, num_samples)
+                sample = self.rand(hy)
                 self.hypa_net.edges[edge]['sampled_weight'] = sample
             else:
                 sample = int(num_samples)
@@ -441,11 +439,11 @@ class HypaPP(Hypa):
         Compute hypa score using appropriate implementation.
         """
         if self.implementation == 'julia':
-            hy = Hypergeometric(total_observations, total_xi - total_observations, xi)
+            hy = self.Hypergeometric(total_observations, total_xi - total_observations, xi)
             if log_p:
-                return logcdf(hy, obs_freq)
+                return self.logcdf(hy, obs_freq)
             else:
-                return cdf(hy, obs_freq)
+                return self.cdf(hy, obs_freq)
         elif self.implementation == 'rpy2':
             return self.rphyper(obs_freq, xi, total_xi-xi, total_observations, log_p=log_p)[0]
         elif self.implementation == 'scipy':
