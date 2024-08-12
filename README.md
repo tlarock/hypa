@@ -17,7 +17,7 @@ Due to this, I have made all 3 implementations accessible in this package. Note 
 
 2. `implementation='rpy2'`: The `R.stats` implementation is as effective as (if slightly slower than) `Distributions.jl`, but installing [`rpy2`](https://rpy2.github.io/) to access R from Python tends to more finicky (in my experience). 
 
-3. `implementation='scipy'`: Using `scipy.stats.hypergeom` is the simplest, but also the worst performing. Any `scipy.stats` distribution should have `hypergeom` and there should be no trouble with imports. We recommend *not* computing the CDF in log space (e.g. set `log=False` in `Hypa.construct_hypa_network`), since the `logcdf` function is very slow. For reasons still mysterioous to me, the `cdf` function in this version seems to have some numerical issues that the others do not.
+3. `implementation='scipy'`: Using `scipy.stats.hypergeom` is the simplest, but also the worst performing. Any `scipy.stats` distribution should have `hypergeom` and there should be no trouble with imports. We recommend *not* computing the CDF in log space (e.g. set `log=False` in `Hypa.construct_hypa_network`), since the `logcdf` function is very slow. For reasons still mysterious to me, the `cdf` function in this version seems to have some numerical issues that the others do not.
 
 ## Installation
 You can install `hypa` as follows:
